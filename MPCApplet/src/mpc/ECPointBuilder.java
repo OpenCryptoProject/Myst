@@ -15,10 +15,13 @@ public class ECPointBuilder {
     public static final byte ECPOINT_LIB = ECPOINT_INSTANCE_TYPE_SW; // Set proper library based on the underlying provider
     public static final byte ECPOINT_TYPE = TYPE_EC_FP_POINT; 
     
+    static ECCurve theCurve;
+    static ECConfig ecc;
+    
     static ECPointBase createPoint(short keyLen) {
         switch (ECPOINT_LIB) {
             case ECPOINT_INSTANCE_TYPE_SW: 
-                return ECPoint_SW.createPoint(ECPOINT_TYPE, keyLen);
+                return ECPoint_SW.createPoint(ecc);
             case ECPOINT_INSTANCE_TYPE_NXP: 
                 ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
                 break;
@@ -28,10 +31,13 @@ public class ECPointBuilder {
         return null;
     }
     
-    public static void allocate() {
+    public static void allocate(ECCurve curve, ECConfig ecCfg) {
+        theCurve = curve;
+        ecc = ecCfg;
+        
         switch (ECPOINT_LIB) {
             case ECPOINT_INSTANCE_TYPE_SW:
-                ECPoint_SW.allocate();
+                ECPoint_SW.allocate(ecc, theCurve);
                 break;
             case ECPOINT_INSTANCE_TYPE_NXP:
                 ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);

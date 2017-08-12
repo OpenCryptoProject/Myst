@@ -1,6 +1,5 @@
 package mpc;
 
-import mpcclient.MPCTestClient;
 import org.testng.Assert;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -61,7 +60,7 @@ public class BignatTests {
     public void tearDownMethod() throws Exception {
     }
     
-    
+/*    
     static byte[] testNonOptimizedModuloBignat(byte[] n, byte[] r) {
         Bignat modulo_Bn = new Bignat((short) Consts.RND_SIZE, false);
         modulo_Bn.from_byte_array((short) r.length, (short) (0), r, (short) 0);
@@ -87,7 +86,7 @@ public class BignatTests {
 
         System.out.format("*********** END: Modulo non-optimized with Bignat  ********\n");
     }
-
+*/
     @Test
     void anotherTest() {
         assert(false);

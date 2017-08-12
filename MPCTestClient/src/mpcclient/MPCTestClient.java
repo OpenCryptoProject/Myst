@@ -58,10 +58,10 @@ import mpc.SecP256r1;
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class MPCTestClient {
-    public final static boolean _DEBUG = true;
+    public final static boolean _DEBUG = false;
     public final static boolean _SIMULATOR = false;
     public final static boolean _PROFILE_PERFORMANCE = false;
-    public final static boolean _FAIL_ON_ASSERT = true;
+    public final static boolean _FAIL_ON_ASSERT = false;
     public final static boolean _IS_BACKDOORED_EXAMPLE = false;
     
     
@@ -108,8 +108,9 @@ public class MPCTestClient {
             
             MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
             runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
-            runCfg.numSingleOpRepeats = 100;
+            runCfg.numSingleOpRepeats = 1000;
             MPCProtocol_playground(runCfg);
+            //MPCProtocol_playground(runCfg);
         } catch (Exception e) {
                 e.printStackTrace();
         }
@@ -191,7 +192,7 @@ public class MPCTestClient {
             //System.out.format(format, operationName, PointAdd(channel));
             
             //System.exit(0);
-            
+/*            
             operationName = "Native ECPoint Add (INS_TESTECC)";
             for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
                 ECPoint pnt1 = randECPoint();
@@ -207,7 +208,7 @@ public class MPCTestClient {
                 System.out.format(format, operationName, TestNativeECMult(channel, pnt1, scalar));
                 writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             }
-            
+*/            
             
 
             //
@@ -224,8 +225,19 @@ public class MPCTestClient {
             // Sign
             //
             //PerformSignature(BigInteger.TEN, players, channel, perfResults, perfFile);
-            //PerformSignature(BigInteger.valueOf(84125637), players, channel, perfResults, perfFile);
-            
+            PerformSignCache(players, channel, perfResults, perfFile);
+            PerformSignature(BigInteger.valueOf(84125637), 1, players, channel, perfResults, perfFile);
+/*            
+            // Repeated measurements if required
+            long elapsed = -System.currentTimeMillis();
+            for (int i = 1; i < runCfg.numSingleOpRepeats; i++) {
+                //System.out.println("******** \n RETRY " + i + " \n");
+                PerformSignature(BigInteger.valueOf(rng.nextInt()), 1, players, channel, perfResults, perfFile);
+            }
+            elapsed += System.currentTimeMillis();
+            System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed,  elapsed / (float) runCfg.numSingleOpRepeats);
+*/
+/*            
             //Aggregate pub keys
             AggPubKey = ECPointDeSerialization(RetrievePubKey(channel), 0);
             for (SimulatedPlayer player : players) {
@@ -240,6 +252,7 @@ public class MPCTestClient {
                 System.out.println("******** \n RETRY " + i + " \n");
                 PerformSignature(BigInteger.valueOf(rng.nextInt()), i+1, players, channel, perfResults, perfFile);
             }
+*/            
           
                     
             System.out.print("Disconnecting from card...");
@@ -407,35 +420,43 @@ public class MPCTestClient {
         
         writePerfLog("* Combined Encrypt time", combinedTime, perfResults, perfFile);
 
-        System.out.printf(String.format("%s:", operationName));
-        ECPoint c1 = ECPointDeSerialization(ciphertext, 0);
-        ECPoint c2 = ECPointDeSerialization(ciphertext, Consts.SHARE_SIZE_CARRY_65);
+        if (ciphertext.length > 0) {
+            System.out.printf(String.format("%s:", operationName));
+            ECPoint c1 = ECPointDeSerialization(ciphertext, 0);
+            ECPoint c2 = ECPointDeSerialization(ciphertext, Consts.SHARE_SIZE_CARRY_65);
 
-        // Decrypt EC Point
-        // Combine all decryption shares (x_ic)
-        ECPoint xc1_EC = curve.getInfinity();
-        for (SimulatedPlayer player : players) {
-            xc1_EC = xc1_EC.add(c1.multiply(player.priv_key_BI).negate());
+            // Decrypt EC Point
+            // Combine all decryption shares (x_ic)
+            ECPoint xc1_EC = curve.getInfinity();
+            for (SimulatedPlayer player : players) {
+                xc1_EC = xc1_EC.add(c1.multiply(player.priv_key_BI).negate());
+            }
+
+            System.out.printf("\n");
+            operationName = "Decrypt (INS_DECRYPT)";
+            byte[] xc1_share = Decrypt(channel, ciphertext, _PROFILE_PERFORMANCE);
+            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+            combinedTime += m_lastTransmitTime;
+            combinedTimeDecrypt += m_lastTransmitTime;
+
+            perfResultsList.add(new Pair("* Combined Decrypt time", combinedTimeDecrypt));        
+            writePerfLog("* Combined Decrypt time", combinedTimeDecrypt, perfResults, perfFile);
+
+            System.out.printf(String.format("%s:", operationName));
+            xc1_EC = xc1_EC.add(ECPointDeSerialization(xc1_share, 0).negate());
+            ECPoint plaintext_EC = c2.add(xc1_EC);
+
+            System.out.format(format, "Decryption successful?:",
+                    Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
+            if (_FAIL_ON_ASSERT) {
+                assert (Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
+            }
         }
-
-        System.out.printf("\n");
-        operationName = "Decrypt (INS_DECRYPT)";
-        byte[] xc1_share = Decrypt(channel, ciphertext, _PROFILE_PERFORMANCE);
-        writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-        combinedTime += m_lastTransmitTime;
-        combinedTimeDecrypt += m_lastTransmitTime;
-        
-        perfResultsList.add(new Pair("* Combined Decrypt time", combinedTimeDecrypt));        
-        writePerfLog("* Combined Decrypt time", combinedTimeDecrypt, perfResults, perfFile);
-        
-        System.out.printf(String.format("%s:", operationName));
-        xc1_EC = xc1_EC.add(ECPointDeSerialization(xc1_share, 0).negate());
-        ECPoint plaintext_EC = c2.add(xc1_EC);
-
-        System.out.format(format, "Decryption successful?:",
-                Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
-        if (_FAIL_ON_ASSERT) {
-            assert (Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
+        else {
+            System.out.println("ERROR: Failed to retrieve valid encrypted block from card");
+            if (_FAIL_ON_ASSERT) {
+                assert (false);
+            }            
         }
         
     }
@@ -958,6 +979,17 @@ public class MPCTestClient {
     */
 	
     private static byte[] Sign(CardChannel channel, int round, byte[] plaintext, byte[] Rn, boolean bPerformance) throws Exception {
+/*
+        // Repeated measurements if required
+        long elapsed = -System.currentTimeMillis();
+        int repeats = 100000;
+        for (int i = 1; i < repeats; i++) {
+            CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(plaintext, Rn));
+            ResponseAPDU response = transmit(channel, cmd);
+        }
+        elapsed += System.currentTimeMillis();
+        System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed, elapsed / (float) repeats);
+/**/
         if (!bPerformance) {
         	CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(plaintext, Rn));
         	ResponseAPDU response = transmit(channel, cmd);
@@ -965,6 +997,7 @@ public class MPCTestClient {
         	return response.getData();
         }
         else {
+            // Repeated measurements if required
             for (byte p2 = 1; p2 <= 10; p2++) {
             	CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, p2, concat(plaintext, Rn));
                     ResponseAPDU response = transmit(channel, cmd);

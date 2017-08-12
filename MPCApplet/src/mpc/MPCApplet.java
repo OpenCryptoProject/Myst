@@ -11,30 +11,42 @@ import javacard.framework.Util;
 //import javacardx.framework.math.BigNumber;
 
 public class MPCApplet extends Applet {
-	
-	public MPCApplet() {
-            ECPointBuilder.allocate();
-            ECPointBase.allocate();
-            CryptoOperations.allocate();
-            DKG.allocate();
-            Parameters.allocate();
-            Bignat.allocate();
-            Utils.allocate();
-            CryptoObjects.allocate();
-            
-            CryptoObjects.KeyPair = new DKG();
-            //CryptoObjects.EphimeralKey = new DKG();
-            //CryptoObjects.EphimeralKey_next = new DKG();
-            
-            // Random card unique ID
-            CryptoOperations.randomData.generateData(Parameters.cardIDLong, (short) 0, (short) Parameters.cardIDLong.length);
-	}
+    ECConfig m_ecc;
+    ECCurve m_curve;
+    static boolean bIsSimulator = false;
+    
+    
+    public MPCApplet() {
+        m_ecc = new ECConfig((short) 256);
+        m_ecc.bnh.bIsSimulator = bIsSimulator;
+        m_curve = new ECCurve(false, SecP256r1.p, SecP256r1.a, SecP256r1.b, SecP256r1.G, SecP256r1.r);
+        
+        ECPointBuilder.allocate(m_curve, m_ecc);
+        ECPointBase.allocate(m_curve);
+        CryptoOperations.allocate(m_ecc);
+        Parameters.allocate();
+        Utils.allocate();
+        CryptoObjects.allocate(m_ecc);
 
-	public static void install(byte[] bArray, short bOffset, byte bLength) {
-		// GP-compliant JavaCard applet registration
-		new MPCApplet()
-				.register(bArray, (short) (bOffset + 1), bArray[bOffset]);
-	}
+        CryptoObjects.KeyPair = new DKG(m_curve);
+            //CryptoObjects.EphimeralKey = new DKG();
+        //CryptoObjects.EphimeralKey_next = new DKG();
+
+        // Random card unique ID
+        CryptoOperations.randomData.generateData(Parameters.cardIDLong, (short) 0, (short) Parameters.cardIDLong.length);
+    }
+
+    public static void install(byte[] bArray, short bOffset, byte bLength) {
+        // GP-compliant JavaCard applet registration
+        if (bLength == 0) {
+            bIsSimulator = true;
+            new MPCApplet().register();
+        }
+        else {
+            new MPCApplet()
+                .register(bArray, (short) (bOffset + 1), bArray[bOffset]);
+        }
+    }
 
 
 
@@ -76,7 +88,6 @@ public class MPCApplet extends Applet {
                         break;
                     
                 case Consts.INS_TESTRSAMULT:
-                    TestRSAMult(apdu);
                     break;
                 case Consts.INS_TESTECC:
                     TestNativeECC(apdu, dataLen);
@@ -211,9 +222,9 @@ public class MPCApplet extends Applet {
 
         CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);
         //CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
-       CryptoOperations.randomData.generateData(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_SIZE_32);
+        CryptoOperations.randomData.generateData(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_SIZE_32);
        //CryptoObjects.secret_seed = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-        
+
         Parameters.SETUP = true; // Ok, done
     }
 
@@ -222,7 +233,7 @@ public class MPCApplet extends Applet {
         CryptoObjects.Reset();
         // Restore proper value of modulo_Bn (was erased during the card's reset)
         CryptoOperations.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-        CryptoOperations.aBn.set_from_byte_array((short) (CryptoOperations.aBn.size() - (short) CryptoOperations.r_for_BigInteger.length), CryptoOperations.r_for_BigInteger, (short) 0, (short) CryptoOperations.r_for_BigInteger.length);
+        CryptoOperations.aBn.set_from_byte_array((short) (CryptoOperations.aBn.length() - (short) CryptoOperations.r_for_BigInteger.length), CryptoOperations.r_for_BigInteger, (short) 0, (short) CryptoOperations.r_for_BigInteger.length);
     }
 
     void getCardInfo(APDU apdu) {
@@ -315,6 +326,7 @@ public class MPCApplet extends Applet {
      (byte) 0x7D, (byte) 0xB8, (byte) 0x45, (byte) 0x28, (byte) 0xC6, (byte) 0x1B, (byte) 0xC6, (byte) 0xD0};
          
     void TestNativeECC(APDU apdu, short dataLen) {
+/*        
         byte[] buff = apdu.getBuffer();
         short pointSize = (short) (buff[(short) ISO7816.OFFSET_P2] & 0x00FF);
         
@@ -331,185 +343,6 @@ public class MPCApplet extends Applet {
             short len = ECPointBase.ScalarMultiplication(CryptoOperations.c1_EC, ECPointBase.ECMultiplHelper, buff); 
             apdu.setOutgoingAndSend((short) 0, len);
         }   
-    }
-    
-    void TestRSAMult(APDU apdu) {
-        byte[] buff = apdu.getBuffer();
-        CryptoOperations.e_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-        CryptoOperations.s_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-//        CryptoOperations.e_Bn.athousand();
-//        CryptoOperations.s_Bn.twentyfive();
-        
-        if (buff[ISO7816.OFFSET_P1] == (byte) 0x01) {
-            CryptoOperations.e_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-            CryptoOperations.s_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-            CryptoOperations.xe_Bn.mult(CryptoOperations.e_Bn, CryptoOperations.s_Bn);
-        }
-        if (buff[ISO7816.OFFSET_P1] == (byte) 0x02) {
-            CryptoOperations.e_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-            CryptoOperations.s_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-            CryptoOperations.xe_Bn.multRSATrick(CryptoOperations.e_Bn, CryptoOperations.s_Bn);
-        }
-        if (buff[ISO7816.OFFSET_P1] == (byte) 0x03) {
-            CryptoOperations.xe_Bn.from_byte_array((short) xe_Bn_testInput1.length, (short) 0, xe_Bn_testInput1, (short) 0);            
-            CryptoOperations.xe_Bn.remainder_divide(CryptoOperations.modulo_Bn, null);
-        }
-        if (buff[ISO7816.OFFSET_P1] == (byte) 0x04) {
-            CryptoOperations.xe_Bn.shiftBytes_right((short) 8);
-        }
-        
-        if (buff[ISO7816.OFFSET_P1] == (byte) 0x05) {
-            // -- begin - trick with RSA multiplication X/2^k
-            // BUGBUG: set test input
-            CryptoOperations.xe_Bn.from_byte_array((short) xe_Bn_testInput1.length, (short) 0, xe_Bn_testInput1, (short) 0);
-            // xe_Bn % aBn = xe_Bn - ((xe_Bn * aBn) >> k) * aBn
-            // (xe_Bn * aBn)
-            //resBn1.mult(aBn, xe_Bn);
-            CryptoOperations.resBn1.mult(CryptoOperations.aBn, CryptoOperations.xe_Bn);
-
-            // ((n * a) >> k)
-            CryptoOperations.resBn1.shiftBytes_right(CryptoOperations.SHIFT_BYTES_AAPROX); // 520 == 65*8
-
-            // ((n * a) >> k) * r
-            CryptoOperations.resBn2.from_byte_array(CryptoOperations.resBn2.size(), (short) 0, CryptoOperations.resBn1.as_byte_array(), (short) (CryptoOperations.resBn1.size() - CryptoOperations.resBn2.size()));
-
-            CryptoOperations.resBn3.mult(CryptoOperations.modulo_Bn, CryptoOperations.resBn2);
-
-            // n - ((n * a) >> k) * r
-            byte[] result = CryptoOperations.xe_Bn.as_byte_array();
-            byte[] inter = CryptoOperations.resBn3.as_byte_array();
-            Bignat.subtract(result, (short) 0, (short) result.length, inter, (short) 0, (short) inter.length);        
-        }
-        
-        if (buff[ISO7816.OFFSET_P1] == (byte) 0x06) {
-            short offset = 0;
-
-            CryptoOperations.xe_Bn.from_byte_array((short) xe_Bn_testInput1.length, (short) 0, xe_Bn_testInput1, (short) 0);
-/*
-            CryptoOperations.resBn1.zero();
-            CryptoOperations.resBn1.mult(CryptoOperations.aBn, CryptoOperations.xe_Bn);
-//            CryptoOperations.resBn1.mult(CryptoOperations.e_Bn, CryptoOperations.xe_Bn);
-            Util.arrayCopyNonAtomic(CryptoOperations.resBn1.as_byte_array(), (short) 0, buff, offset, CryptoOperations.resBn1.size());
-            offset += CryptoOperations.resBn1.size();
-/*
-            for (short i = 0; i < (short) 7; i++) {
-                buff[offset] = (byte) i;
-                offset++;
-            }
-            
-            short xOffset;
-            short yOffset;
-            Bignat x = CryptoOperations.aBn;
-            //Bignat x = CryptoOperations.xe_Bn;
-            Util.arrayFillNonAtomic(Bignat.mult_resultArray2, (short) 0, (short) Bignat.mult_resultArray2.length, (byte) 0);
-            xOffset = (short) (Bignat.mult_resultArray2.length - x.size());
-            Util.arrayCopyNonAtomic(x.as_byte_array(), (short) 0, Bignat.mult_resultArray2, xOffset, x.size());
-            Bignat.mult_cipher.doFinal(Bignat.mult_resultArray2, (byte) 0, (short) Bignat.mult_resultArray2.length, Bignat.mult_resultArray2, (short) 0);
-//            Util.arrayCopyNonAtomic(Bignat.mult_resultArray2, (short) 0, buff, offset, (short) Bignat.mult_resultArray2.length);
-//            offset += (short) Bignat.mult_resultArray2.length;
-
-//            Bignat x = CryptoOperations.aBn;
-            Bignat y = CryptoOperations.xe_Bn;
-            // x+y
-            Util.arrayFillNonAtomic(Bignat.mult_resultArray, (short) 0, (short) Bignat.mult_resultArray.length, (byte) 0);
-            // We must copy bigger number first
-            if (x.size() > y.size()) {
-                // Copy x to the end of mult_resultArray
-                xOffset = (short) (Bignat.mult_resultArray.length - x.size());
-                Util.arrayCopyNonAtomic(x.as_byte_array(), (short) 0, Bignat.mult_resultArray, xOffset, x.size());
-                if (Bignat.add(Bignat.mult_resultArray, xOffset, x.size(), y.as_byte_array(), (short) 0, y.size())) {
-                    xOffset--;
-                    Bignat.mult_resultArray[xOffset] = 0x01;
-                }
-            } else {
-                // Copy x to the end of mult_resultArray
-                yOffset = (short) (Bignat.mult_resultArray.length - y.size());
-                Util.arrayCopyNonAtomic(y.as_byte_array(), (short) 0, Bignat.mult_resultArray, yOffset, y.size());
-                if (Bignat.add(Bignat.mult_resultArray, yOffset, y.size(), x.as_byte_array(), (short) 0, x.size())) {
-                    yOffset--;
-                    Bignat.mult_resultArray[yOffset] = 0x01;
-                }
-            }
-        //ISOException.throwIt((short) 0x666);
-
-            // ((x+y)^2)
-            Bignat.mult_cipher.doFinal(Bignat.mult_resultArray, (byte) 0, (short) Bignat.mult_resultArray.length, Bignat.mult_resultArray, (short) 0);            
-            
-            // ((x+y)^2) - x^2
-            Bignat.subtract(Bignat.mult_resultArray, (short) 0, (short) Bignat.mult_resultArray.length, Bignat.mult_resultArray2, (short) 0, (short) Bignat.mult_resultArray2.length);
-*/
-            // xe_Bn^2
-            Bignat y = CryptoOperations.aBn;
-            //Bignat y = CryptoOperations.modulo_Bn;
-            Util.arrayFillNonAtomic(Bignat.mult_resultArray2, (short) 0, (short) Bignat.mult_resultArray2.length, (byte) 0);
-            short yOffset = (short) (Bignat.mult_resultArray2.length - y.size());
-            Util.arrayCopyNonAtomic(y.as_byte_array(), (short) 0, Bignat.mult_resultArray2, yOffset, y.size());
-            Bignat.mult_cipher.doFinal(Bignat.mult_resultArray2, (byte) 0, (short) Bignat.mult_resultArray2.length, Bignat.mult_resultArray2, (short) 0);
-            
-            //Bignat.subtract(Bignat.mult_resultArray, (short) 0, (short) Bignat.mult_resultArray.length, Bignat.mult_resultArray2, (short) 0, (short) Bignat.mult_resultArray2.length);
-            
-            
-            Util.arrayCopyNonAtomic(Bignat.mult_resultArray2, (short) 0, buff, offset, (short) Bignat.mult_resultArray2.length);
-            offset += (short) Bignat.mult_resultArray2.length;
-            
-/**/            
-            
-/*            
-            CryptoOperations.xe_Bn.set_from_byte_array((short) 0, xe_Bn_testInput1, (short) 0, (short) xe_Bn_testInput1.length);
-            CryptoOperations.resBn1.zero();
-            CryptoOperations.resBn1.multRSATrick(CryptoOperations.aBn, CryptoOperations.xe_Bn);
-            //CryptoOperations.resBn1.multRSATrick(CryptoOperations.e_Bn, CryptoOperations.xe_Bn);
-            
-            Util.arrayCopyNonAtomic(CryptoOperations.resBn1.as_byte_array(), (short) 0, buff, offset, CryptoOperations.resBn1.size());
-            offset += CryptoOperations.resBn1.size();
-/*            
-            for (short i = 0; i < (short) 7; i++) {
-                buff[offset] = (byte) 0;
-                offset++;
-            }            
-*/
-/*            
-            CryptoOperations.xe_Bn.set_from_byte_array((short) 0, CryptoOperations.xe_Bn_testInput1, (short) 0, (short) CryptoOperations.xe_Bn_testInput1.length);
-            CryptoOperations.resBn1.zero();
-            CryptoOperations.resBn1.multRSATrick(CryptoOperations.xe_Bn, CryptoOperations.aBn);
-            Util.arrayCopyNonAtomic(CryptoOperations.resBn1.as_byte_array(), (short) 0, buff, offset, CryptoOperations.resBn1.size());
-            offset += CryptoOperations.resBn1.size();
-/**/            
-            
-            apdu.setOutgoingAndSend((short) 0, offset);     
-            return;
-        }
-/*        
-        if (buff[ISO7816.OFFSET_P1] == (byte) 0x07) {
-            // N % r = N_high32 | N_low32 | % r
-            CryptoOperations.xe_Bn.from_byte_array((short) CryptoOperations.xe_Bn_testInput1.length, (short) 0, CryptoOperations.xe_Bn_testInput1, (short) 0);
-            
-            // 2^k mod r
-            CryptoOperations.xe_Bn.remainder_divide(CryptoOperations.modulo_Bn, null);
-            
-            CryptoOperations.resBn1.mult(CryptoOperations.aBn, CryptoOperations.xe_Bn);
-
-            short offset = 0;
-            Util.arrayCopyNonAtomic(CryptoOperations.resBn1.as_byte_array(), (short) 0, buff, offset, CryptoOperations.resBn1.size());
-            offset += CryptoOperations.resBn1.size();
-
-            for (short i = 0; i < (short) 7; i++) {
-                buff[offset] = (byte) 0;
-                offset++;
-            }
-
-            CryptoOperations.xe_Bn.from_byte_array((short) CryptoOperations.xe_Bn_testInput1.length, (short) 0, CryptoOperations.xe_Bn_testInput1, (short) 0);
-            CryptoOperations.resBn1.zero();
-            CryptoOperations.resBn1.multRSATrick(CryptoOperations.aBn, CryptoOperations.xe_Bn);
-
-            Util.arrayCopyNonAtomic(CryptoOperations.resBn1.as_byte_array(), (short) 0, buff, offset, CryptoOperations.resBn1.size());
-            offset += CryptoOperations.resBn1.size();
-            apdu.setOutgoingAndSend((short) 0, offset);
-            return;
-        }
 */        
-        
-        Util.arrayCopyNonAtomic(CryptoOperations.xe_Bn.as_byte_array(), (short) 0, buff, (short) 0, CryptoOperations.xe_Bn.size());
-        apdu.setOutgoingAndSend((short) 0, CryptoOperations.xe_Bn.size());
     }
 }

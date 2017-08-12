@@ -3,6 +3,7 @@ package mpc;
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.security.CryptoException;
+import javacard.security.ECKey;
 import javacard.security.ECPrivateKey;
 import javacard.security.KeyAgreement;
 import javacard.security.KeyPair;
@@ -20,21 +21,25 @@ public class ECPointBase implements javacard.security.ECKey {
     static KeyPair disposable_pairDecrypt = null;
     static ECPrivateKey disposable_privDecrypt = null;
     
-    static byte[] TempBuffer65 = null;
-    static byte[] pt_A_arr = null; // Check if can share with TempBuffer65
-    static byte[] pointTpmArray = null; // Check if can share with TempBuffer65
+    static ECCurve theCurve;
     
-    static void allocate() {
+    static byte[] TempBuffer65 = null;
+    static byte[] pt_A_arr = null;          // Check if can share with TempBuffer65
+    static byte[] pointTpmArray = null;     // Check if can share with TempBuffer65
+    
+    
+    static void allocate(ECCurve curve) {
+        theCurve = curve;
+        disposable_pair = theCurve.newKeyPair(disposable_pair);
+        disposable_priv = (ECPrivateKey) disposable_pair.getPrivate();
+        disposable_pair.genKeyPair();
+        disposable_pairDecrypt = theCurve.newKeyPair(disposable_pairDecrypt);
+        disposable_privDecrypt = (ECPrivateKey) disposable_pairDecrypt.getPrivate();
+        disposable_pairDecrypt.genKeyPair();
+
         TempBuffer65 = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
         pointTpmArray = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
         pt_A_arr = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-        
-        disposable_pair = SecP256r1.newKeyPair();
-        disposable_priv = (ECPrivateKey) disposable_pair.getPrivate();
-        disposable_pair.genKeyPair();
-        disposable_pairDecrypt = SecP256r1.newKeyPair();
-        disposable_privDecrypt = (ECPrivateKey) disposable_pairDecrypt.getPrivate();
-        disposable_pairDecrypt.genKeyPair();
     }
 
     public void initializeECPoint_SecP256r1() {
@@ -54,44 +59,25 @@ public class ECPointBase implements javacard.security.ECKey {
         return -1;
     }    
     
-    public static short ScalarMultiplication(ECPointBase BasePoint, KeyAgreement ecKeyAgreement, byte[] result) {
-        short lenW = BasePoint.getW(TempBuffer65, (short) 0); // Read base point into buffer
-        return ScalarMultiplication(TempBuffer65, (short) 0, lenW, ecKeyAgreement, result);
+    public short ScalarMultiplication(ECPointBase BasePoint, KeyAgreement ecKeyAgreement, byte[] result) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
+        return -1;
     }
-
-    public static short ScalarMultiplication(byte[] BasePoint, short BasePointOffset, short BasePointLen, KeyAgreement ecKeyAgreement, byte[] result) {
-        // Compute new point and store in buffer
-        short len = ecKeyAgreement.generateSecret(BasePoint, BasePointOffset, BasePointLen, result, (short) 0);
-
-        return len;
+    public short ScalarMultiplication(byte[] BasePoint, short BasePointOffset, short BasePointLen, byte[] value, byte[] result) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
+        return -1;
     }
-
-    public static short ScalarMultiplication(byte[] BasePoint, short BasePointOffset, short BasePointLen, byte[] value, byte[] result) {
-        disposable_priv.setS(value, (short) 0, (short) value.length);
-        ECMultiplHelper.init(disposable_priv); // Set multiplier
-
-        return ScalarMultiplication(BasePoint, BasePointOffset, BasePointLen, ECMultiplHelper, result);
+    public void ScalarMultiplication(ECPointBase BasePoint, KeyAgreement ecKeyAgreement, ECPointBase ResultECPoint) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
     }
-
-    private static short ScalarMultiplication(ECPointBase BasePoint, byte[] value, byte[] result) {
-        disposable_priv.setS(value, (short) 0, (short) value.length);
-        ECMultiplHelper.init(disposable_priv); // Set multiplier
-
-        return ScalarMultiplication(BasePoint, ECMultiplHelper, result);
+    public short ScalarMultiplication(byte[] BasePoint, short BasePointOffset, short BasePointLen, KeyAgreement ecKeyAgreement, byte[] result) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
+        return -1;
     }
-
-    public static void ScalarMultiplication(ECPointBase BasePoint, KeyAgreement ecKeyAgreement, ECPointBase ResultECPoint) {
-        short lenW = ScalarMultiplication(BasePoint, ecKeyAgreement, TempBuffer65);
-        ResultECPoint.setW(TempBuffer65, (short) 0, lenW); // Store resulting
-    }
-
-    private static void ScalarMultiplication(ECPointBase BasePoint, byte[] value, ECPointBase ResultECPoint) {
-        short lenW = ScalarMultiplication(BasePoint, value, TempBuffer65);
-
-        // Return resulting point
-        ResultECPoint.setW(TempBuffer65, (short) 0, lenW); // Store resulting
-    }
-
+    
+    
+    
+    
     public static void ECPointAddition(ECPointBase PointA, ECPointBase PointB, ECPointBase ResultECPoint) {
         PointB.getW(pointTpmArray, (short) 0);
         ECPointAddition(PointA, pointTpmArray, (short) 0, ResultECPoint);
@@ -234,5 +220,9 @@ public class ECPointBase implements javacard.security.ECKey {
      return ResultECPoint;
      }
      */
+
+    public void copyDomainParametersFrom(ECKey eckey) throws CryptoException {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
+    }
     
 }

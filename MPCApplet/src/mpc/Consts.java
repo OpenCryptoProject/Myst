@@ -1,9 +1,8 @@
-
 package mpc;
 
 /**
  *
- * @author petrs
+ * @author Petr Svenda
  */
 public class Consts {
     // Manually updated version of corresponding git commit

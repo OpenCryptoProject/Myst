@@ -18,11 +18,11 @@ public class DKG {
     static MessageDigest md = null;
     //static private ECPoint GenPoint = null;
 
-    
-    private KeyPair pair = SecP256r1.newKeyPair();
-    private byte[] x_i_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET); 
-    private byte[] copy_x_i_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-    byte[] tmp_arr = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+    ECCurve theCurve = null;
+    private KeyPair pair = null;
+    private byte[] x_i_Bn = null;
+    private byte[] copy_x_i_Bn = null;
+    byte[] tmp_arr = null;
     private mpc.ECPointBase Y_EC = null;
     private mpc.ECPointBase Y_EC_onTheFly = null; // aggregated Ys computed on the fly instead of in one shot once all shares are provided (COMPUTE_Y_ONTHEFLY)
     private byte[] CARD_THIS_YS = null;   // Ys for this card  
@@ -42,11 +42,48 @@ public class DKG {
     // BUGBUG: Check thoroughly for all state transitions (automata-based programming)
     private short STATE = -1; // current state of the protocol run - some operations are not available in given state
 
-    static void allocate() {
-        md = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, true);
+    
+    public DKG(ECCurve curve) {
+        theCurve = curve;
+
+        if (md == null) {
+            //md = MessageDigest.getInstance(MessageDigest.ALG_SHA, false);
+            md = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, false);
+        }
         //GenPoint = ECPointBuilder.buildECPoint(ECPointBuilder.TYPE_EC_FP_POINT, (short) SecP256r1.KEY_LENGTH);
         //GenPoint.setW(SecP256r1.G, (short) 0, (short) SecP256r1.G.length);
-    }
+        this.pair = theCurve.newKeyPair(this.pair);
+        x_i_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        copy_x_i_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        tmp_arr = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        
+        ///////////
+        //Arrays//
+        //////////
+        players = new Player[Consts.MAX_N_PLAYERS];
+        if (COMPUTE_Y_ONTHEFLY) {
+            CARD_THIS_YS = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        }
+        for (short i = 0; i < Consts.MAX_N_PLAYERS; i++) {
+            players[i] = new Player();
+            if (PLAYERS_IN_RAM) {
+                if (!COMPUTE_Y_ONTHEFLY) {
+                    players[i].Ys = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+                }
+                players[i].hash = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+            } else {
+                players[i].Ys = new byte[Consts.SHARE_SIZE_CARRY_65];
+                players[i].hash = new byte[Consts.SHARE_SIZE_32];
+            }
+        }
+
+        Y_EC = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
+        Y_EC.initializeECPoint_SecP256r1();
+        Y_EC_onTheFly = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
+        Y_EC_onTheFly.initializeECPoint_SecP256r1();
+
+        STATE = 0;
+    }    
     
     short getState() {
         return STATE;        
@@ -86,7 +123,7 @@ public class DKG {
                     priv.setS(privbytes_backdoored, (short) 0, (short) privbytes_backdoored.length);
                     ((ECPrivateKey) pair.getPrivate()).getS(x_i_Bn, (short) 0);
                     // Compute and set corresponding public key (to backdoored private one)
-                    ECPointBase.ScalarMultiplication(SecP256r1.G, (short) 0, (short) SecP256r1.G.length, privbytes_backdoored, tmp_arr);
+                    CryptoOperations.placeholder.ScalarMultiplication(SecP256r1.G, (short) 0, (short) SecP256r1.G.length, privbytes_backdoored, tmp_arr);
                     pub.setW(tmp_arr, (short) 0, (short) 65);
                 }
                 else {
@@ -105,13 +142,8 @@ public class DKG {
         
         times_x_used += 1;
         
-        	
+        CryptoOperations.placeholder.ScalarMultiplication(SecP256r1.G, (short) 0, (short) SecP256r1.G.length, x_i_Bn, CARD_THIS_YS); // yG
         
-	      
-	    //EC_Utils.ScalarMultiplication(GenPoint, x_i_Bn, CARD_THIS_YS); // yG
-	       ECPointBase.ScalarMultiplication(SecP256r1.G, (short) 0, (short) SecP256r1.G.length, x_i_Bn, CARD_THIS_YS); // yG
-        
-	        
         if (COMPUTE_Y_ONTHEFLY) {
             Y_EC_onTheFly.setW(CARD_THIS_YS, (short) 0, (short) CARD_THIS_YS.length);     
         }
@@ -125,40 +157,13 @@ public class DKG {
         // Pre-prepare engine for faster Decrypt later
         if (bPrepareDecryption) {
             ECPointBase.disposable_privDecrypt.setS(x_i_Bn, (short) 0, (short) x_i_Bn.length);
-            ECPointBase.ECMultiplHelperDecrypt.init(ECPointBase.disposable_privDecrypt);
+            if (ECPointBase.ECMultiplHelperDecrypt != null) { // BUGBUG jcarsim test
+                ECPointBase.ECMultiplHelperDecrypt.init(ECPointBase.disposable_privDecrypt);
+            }
         }
         STATE = 0;
     }    
-    
-    public DKG() {
-      	///////////
-        //Arrays//
-        //////////
-        players = new Player[Consts.MAX_N_PLAYERS];
-        if (COMPUTE_Y_ONTHEFLY) {
-            CARD_THIS_YS = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-        }
-        for (short i = 0; i < Consts.MAX_N_PLAYERS; i++) {
-            players[i] = new Player();
-            if (PLAYERS_IN_RAM) {
-                if (!COMPUTE_Y_ONTHEFLY) {
-                    players[i].Ys = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-                }
-                players[i].hash = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-            }
-            else {
-                players[i].Ys = new byte[Consts.SHARE_SIZE_CARRY_65];
-                players[i].hash = new byte[Consts.SHARE_SIZE_32];
-            }
-        }
 
-        Y_EC = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
-        Y_EC.initializeECPoint_SecP256r1();
-        Y_EC_onTheFly = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
-        Y_EC_onTheFly.initializeECPoint_SecP256r1();
-        
-        STATE = 0;
-    }
     
     public void Copy(DKG AnotherDKG) {
         //this.PLAYERS_IN_RAM = AnotherDKG.PLAYERS_IN_RAM;
