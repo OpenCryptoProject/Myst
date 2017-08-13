@@ -15,9 +15,11 @@ import javacard.framework.Util;
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class MPCApplet extends Applet {
+    static boolean bIsSimulator = false;
+    static boolean bFixRandomInputs = false; // if true, predictable random numbers are used 
+    
     ECConfig m_ecc;
     ECCurve m_curve;
-    static boolean bIsSimulator = false;
     
     
     public MPCApplet() {
@@ -55,6 +57,7 @@ public class MPCApplet extends Applet {
 
 
     public boolean select() {
+        updateAfterReset();
         Reset();
         return true;
     }
@@ -99,13 +102,13 @@ public class MPCApplet extends Applet {
                 case Consts.INS_SET_BACKDOORED_EXAMPLE:
                     // If p1 == 0x55, then set flag which will cause applet to behave as example backdoored one
                     if (p1 == (byte) 0x55) {
-                        CryptoObjects.KeyPair.IS_BACKDOORED_EXAMPLE = true;
+                        DKG.IS_BACKDOORED_EXAMPLE = true;
                         // Return the value of backdoored key
                         Util.arrayCopyNonAtomic(DKG.privbytes_backdoored, (short) 0, apdubuf, (short) 0, (short) DKG.privbytes_backdoored.length);
                         apdu.setOutgoingAndSend((short) 0, (short) DKG.privbytes_backdoored.length);
                     }
                     else {
-                        CryptoObjects.KeyPair.IS_BACKDOORED_EXAMPLE = false;
+                        DKG.IS_BACKDOORED_EXAMPLE = false;
                     }
                     break;
 
@@ -216,6 +219,20 @@ public class MPCApplet extends Applet {
                 ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
         }
     }
+    
+    void updateAfterReset() {
+        if (m_curve != null) {
+            m_curve.updateAfterReset();
+        }
+        if (m_ecc != null) {
+            m_ecc.refreshAfterReset();
+            m_ecc.unlockAll();
+        }
+        if (m_ecc.bnh != null) {
+            m_ecc.bnh.bIsSimulator = bIsSimulator;
+        }
+    }
+    
         
     // ///////////////////////////////////////////////////////////////////
     // // Card Management functionality ////
@@ -227,6 +244,9 @@ public class MPCApplet extends Applet {
         CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);
         //CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
         CryptoOperations.randomData.generateData(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_SIZE_32);
+        if (DKG.IS_BACKDOORED_EXAMPLE) {
+            Util.arrayFillNonAtomic(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_SIZE_32, (byte) 0x33);
+        }
        //CryptoObjects.secret_seed = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
 
         Parameters.SETUP = true; // Ok, done
@@ -303,7 +323,7 @@ public class MPCApplet extends Applet {
         offset++;
         Util.setShort(buffer, offset, (short) 1);
         offset += 2;
-        buffer[offset] = CryptoObjects.KeyPair.IS_BACKDOORED_EXAMPLE ? (byte) 1 : (byte) 0;
+        buffer[offset] = DKG.IS_BACKDOORED_EXAMPLE ? (byte) 1 : (byte) 0;
         offset += 1;
 
         apdu.setOutgoingAndSend((short) 0, offset);

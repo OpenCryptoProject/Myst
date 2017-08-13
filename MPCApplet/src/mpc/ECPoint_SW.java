@@ -17,6 +17,7 @@ public class ECPoint_SW extends mpc.ECPointBase {
     static ECPoint fnc_addPoint_other = null;
     static ECPoint fnc_ScalarMultiplication_basePoint = null;
     static ECPoint fnc_ScalarMultiplication_resultPoint = null;
+    static ECPoint fnc_ScalarMultiplication_standardG = null;
     
     ECPoint         m_swECPoint;
     
@@ -41,6 +42,10 @@ public class ECPoint_SW extends mpc.ECPointBase {
             //rm.locker.registerLock(fnc_ScalarMultiplication_basePoint);
         }
         
+        if (fnc_ScalarMultiplication_standardG == null) {
+            fnc_ScalarMultiplication_standardG = new ECPoint(theCurve, ecc.ech);
+        }
+        
 /* unused        
         // TODO: JC 3.0.5 introduces KeyAgreement.ALG_EC_SVDP_DH_PLAIN_XY - but not yet supported on available cards
         ECMultiplHelper = KeyAgreement.getInstance(KeyAgreement_ALG_EC_SVDP_DH_PLAIN_XY, false);
@@ -50,9 +55,10 @@ public class ECPoint_SW extends mpc.ECPointBase {
     
     public short ScalarMultiplication(byte[] BasePoint, short BasePointOffset, short BasePointLen, byte[] value, byte[] result) {
         //rm.locker.lock(fnc_ScalarMultiplication_basePoint);
+        // in case BasePoint is different from G, then update of curve is necessary 
         fnc_ScalarMultiplication_basePoint.getCurve().setG(BasePoint, BasePointOffset, BasePointLen);
         fnc_ScalarMultiplication_basePoint.updatePointObjects(); // After changing curve parameters, internal objects needs to be actualized
-        
+
         fnc_ScalarMultiplication_basePoint.setW(BasePoint, BasePointOffset, BasePointLen);
         fnc_ScalarMultiplication_basePoint.multiplication(value, (short) 0, (short) value.length);
 
@@ -76,15 +82,21 @@ public class ECPoint_SW extends mpc.ECPointBase {
     }
     
     public void ScalarMultiplication(ECPointBase BasePoint, byte[] value, ECPointBase ResultECPoint) {
-        short len = BasePoint.getW(TempBuffer65, (short) 0);
-        fnc_ScalarMultiplication_resultPoint.getCurve().setG(TempBuffer65, (short) 0, len);
-        fnc_ScalarMultiplication_resultPoint.updatePointObjects(); // After changing curve parameters, internal objects needs to be actualized
-        
-        fnc_ScalarMultiplication_resultPoint.setW(TempBuffer65, (short) 0, len);
-        fnc_ScalarMultiplication_resultPoint.multiplication(value, (short) 0, (short) value.length);
-        len = fnc_ScalarMultiplication_resultPoint.getW(TempBuffer65, (short) 0);
+        short len = ScalarMultiplication(BasePoint, value, TempBuffer65);
         ResultECPoint.setW(TempBuffer65, (short) 0, len);
     }
+    
+    public short ScalarMultiplication(ECPointBase BasePoint, byte[] value, byte[] result) {
+        short len = BasePoint.getW(TempBuffer65, (short) 0);
+        ///* in case BasePoint is different from G, then update of curve is necessary (not in MPC)
+        fnc_ScalarMultiplication_resultPoint.getCurve().setG(TempBuffer65, (short) 0, len);
+        fnc_ScalarMultiplication_resultPoint.updatePointObjects(); // After changing curve parameters, internal objects needs to be actualized
+        /**/
+        fnc_ScalarMultiplication_resultPoint.setW(TempBuffer65, (short) 0, len);
+        fnc_ScalarMultiplication_resultPoint.multiplication(value, (short) 0, (short) value.length);
+        len = fnc_ScalarMultiplication_resultPoint.getW(result, (short) 0);
+        return len;
+    }    
     
     
     public void setW(byte[] g, short gOffset, short gLen) {

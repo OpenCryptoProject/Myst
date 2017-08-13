@@ -61,8 +61,10 @@ public class MPCTestClient {
     public final static boolean _DEBUG = true;
     public final static boolean _SIMULATOR = false;
     public final static boolean _PROFILE_PERFORMANCE = false;
-    public final static boolean _FAIL_ON_ASSERT = false;
-    public final static boolean _IS_BACKDOORED_EXAMPLE = false;
+    public final static boolean _FAIL_ON_ASSERT = true;
+    public final static boolean _IS_BACKDOORED_EXAMPLE = false; // if true, applet is set into example "backdoored" state simulating compromised node with known key
+    
+    public final static boolean _FIXED_PLAYERS_RNG = false;
     
     
     // Objects
@@ -108,7 +110,7 @@ public class MPCTestClient {
             
             MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
             runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
-            //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
+            runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 1000;
             MPCProtocol_playground(runCfg);
         } catch (Exception e) {
@@ -183,7 +185,7 @@ public class MPCTestClient {
             System.out.format(format, operationName, Setup(channel, runCfg.numPlayers, runCfg.thisCardID));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
-            // BUGBUG: Signature without previous EncryptDecrypt will fail on CryptoObjects.KeyPair.Getxi()
+            // BUGBUG: Signature without previous EncryptDecrypt will fail on CryptoObjects.KeyPair.Getxi() - as no INS_KEYGEN_xxx was called
             
             //
             //EC Operations
@@ -226,7 +228,8 @@ public class MPCTestClient {
             //
             //PerformSignature(BigInteger.TEN, players, channel, perfResults, perfFile);
             PerformSignCache(players, channel, perfResults, perfFile);
-            PerformSignature(BigInteger.valueOf(84125637), 1, players, channel, perfResults, perfFile);
+            PerformSignature(BigInteger.TEN, 1, players, channel, perfResults, perfFile);
+            //PerformSignature(BigInteger.valueOf(84125637), 1, players, channel, perfResults, perfFile);
 /*            
             // Repeated measurements if required
             long elapsed = -System.currentTimeMillis();
@@ -361,7 +364,7 @@ public class MPCTestClient {
     }
     
     static void PerformEncryptDecrypt(BigInteger msgToEncDec, ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
-
+        // BUGBUG: INS_KEYGEN_xxx must be called also for Sign, not only for Encrypt
         Long combinedTime = (long) 0;
 
         // Generate KeyPair in card
@@ -462,21 +465,25 @@ public class MPCTestClient {
     }
 
     static void PerformSignCache(ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
-        
-        Bignat counter = new Bignat((short)2, false);
-        Bignat one = new Bignat((short)2, false);
+
+        Bignat counter = new Bignat((short) 2, false);
+        Bignat one = new Bignat((short) 2, false);
         one.one();
-        counter.one();            
-        
-        for(int round = 1; round <= Rands.length; round = round + 1) {
-        	Rands[round-1] = ECPointDeSerialization(RetrieveRI(channel, round), 0);
-        	System.out.format(format, "Retrieve Ri,n (INS_SIGN_RETRIEVE_RI):", bytesToHex(Rands[round-1].getEncoded(false)));
-        	
-        	for (SimulatedPlayer player : playersList) {
-        		Rands[round-1] = Rands[round-1].add(ECPointDeSerialization(player.Gen_Rin(counter), 0));
+        counter.one();
+
+        for (int round = 1; round <= Rands.length; round++) {
+            Rands[round - 1] = ECPointDeSerialization(RetrieveRI(channel, round), 0);
+            System.out.format(format, "Retrieve Ri,n (INS_SIGN_RETRIEVE_RI):", bytesToHex(Rands[round - 1].getEncoded(false)));
+
+            for (SimulatedPlayer player : playersList) {
+                Rands[round - 1] = Rands[round - 1].add(ECPointDeSerialization(player.Gen_Rin(counter), 0));
             }
-           	counter.add(one);
+            counter.add(one);
         }
+        for (int round = 1; round <= Rands.length; round++) {
+            System.out.format("Rands[%d]%s\n", round - 1, bytesToHex(Rands[round - 1].getEncoded(false)));
+        }
+        System.out.println();
     }
     
     
@@ -565,8 +572,7 @@ public class MPCTestClient {
 
         AID appletAIDRes = simulator.installApplet(appletAID, appletClass, installData, (short) 0, (byte) installData.length);
         simulator.selectApplet(appletAID);
-        
-        return new SimulatedCardChannelLocal(simulator);
+        return new SimulatedCardChannelLocal(simulator, appletAIDRes);
     }
     
     private static CardChannel connectToCardByTerminalFactory(TerminalFactory factory, int targetReaderIndex) throws CardException {

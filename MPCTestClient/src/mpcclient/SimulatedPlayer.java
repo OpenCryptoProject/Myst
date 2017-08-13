@@ -52,16 +52,20 @@ class SimulatedPlayer {
 	   pub_key_EC = G.multiply(priv_key_BI);
    }
    
-   public final void KeyGen() throws NoSuchAlgorithmException{
-       // Keypair + hash
-       SecureRandom rnd = new SecureRandom();
-       priv_key_BI = new BigInteger(256, rnd);
-       //priv_key_BI = new BigInteger("B346675518084623BC111CC53FF615B152A3F6D1585278370FA1BA0EA160237E".getBytes());
-       pub_key_EC = G.multiply(priv_key_BI);
-       MessageDigest md = MessageDigest.getInstance("SHA-256");
-       md.update(pub_key_EC.getEncoded(false));
-       pub_key_Hash = md.digest();
-   }
+    public final void KeyGen() throws NoSuchAlgorithmException {
+        // Keypair + hash
+        SecureRandom rnd = new SecureRandom();
+        priv_key_BI = new BigInteger(256, rnd);
+        if (MPCTestClient._FIXED_PLAYERS_RNG) {
+            System.out.println("WARNING: _FIXED_PLAYERS_RNG == true");
+            // If true, don't generate random key, but use fixed one instead
+            priv_key_BI = new BigInteger("B346675518084623BC111CC53FF615B152A3F6D1585278370FA1BA0EA160237E".getBytes());
+        }
+        pub_key_EC = G.multiply(priv_key_BI);
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        md.update(pub_key_EC.getEncoded(false));
+        pub_key_Hash = md.digest();
+    }
 
    
    /*

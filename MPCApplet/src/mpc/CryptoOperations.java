@@ -57,7 +57,7 @@ public class CryptoOperations {
         (byte) 0x21, (byte) 0x01, (byte) 0x2f, (byte) 0xfd, (byte) 0x85, (byte) 0xee, (byte) 0xdf, (byte) 0x9b, 
         (byte) 0xfe, (byte) 0x67};
 
-    static byte[] aBn_pow_2_orig = {
+    static byte[] aBn_pow_2 = {
         (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, 
         (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, 
         (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, 
@@ -74,22 +74,8 @@ public class CryptoOperations {
         (byte) 0xC1, (byte) 0x57, (byte) 0x3A, (byte) 0x89, (byte) 0xD7, (byte) 0x29, (byte) 0x38, (byte) 0x99, 
         (byte) 0xDB, (byte) 0x3F, (byte) 0x42, (byte) 0x81, (byte) 0x40, (byte) 0x09, (byte) 0xDF, (byte) 0xC9, 
         (byte) 0x49, (byte) 0x4B, (byte) 0x31, (byte) 0xC9, (byte) 0x7F, (byte) 0x8A, (byte) 0x8D, (byte) 0x71};
-    
-    static byte[] aBn_pow_2 = {
-        (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-        (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-        (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-        (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x01, (byte) 0x00, (byte) 0x00,
-        (byte) 0x00, (byte) 0x02, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0xFF, (byte) 0xFF,
-        (byte) 0xFF, (byte) 0xFD, (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFC, (byte) 0x86, (byte) 0x32,
-        (byte) 0x0A, (byte) 0xA4, (byte) 0x44, (byte) 0x66, (byte) 0xE2, (byte) 0xE8, (byte) 0xC0, (byte) 0x94,
-        (byte) 0xD3, (byte) 0x4F, (byte) 0x59, (byte) 0xED, (byte) 0x28, (byte) 0x63, (byte) 0x78, (byte) 0xEE,
-        (byte) 0x70, (byte) 0x50, (byte) 0x78, (byte) 0x7E, (byte) 0xEB, (byte) 0xFF, (byte) 0x3C, (byte) 0x87,
-        (byte) 0xC1, (byte) 0x57, (byte) 0x3A, (byte) 0x89, (byte) 0xD7, (byte) 0x29, (byte) 0x38, (byte) 0x99,
-        (byte) 0xDB, (byte) 0x3F, (byte) 0x42, (byte) 0x81, (byte) 0x40, (byte) 0x09, (byte) 0xDF, (byte) 0xC9,
-        (byte) 0x49, (byte) 0x4B, (byte) 0x31, (byte) 0xC9, (byte) 0x7F, (byte) 0x8A, (byte) 0x8D, (byte) 0x71};    
-    
-    static byte[] modulo_Bn_pow_2_orig = {
+
+    static byte[] modulo_Bn_pow_2 = {
         (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, 
         (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, 
         (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
@@ -107,20 +93,6 @@ public class CryptoOperations {
         (byte) 0x32, (byte) 0xAD, (byte) 0x5E, (byte) 0x5D, (byte) 0xE4, (byte) 0x69, (byte) 0xC2, (byte) 0x7B, 
         (byte) 0xAB, (byte) 0x0D, (byte) 0xBA, (byte) 0xA1, (byte) 0x5A, (byte) 0x16, (byte) 0x83, (byte) 0xA1};
     
-    static byte[] modulo_Bn_pow_2 = {
-        (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-        (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-        (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-        (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-        (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFE, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x02,
-        (byte) 0xFF, (byte) 0xFF, (byte) 0xFF, (byte) 0xFE, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00,
-        (byte) 0x79, (byte) 0xCD, (byte) 0xF5, (byte) 0x5B, (byte) 0xD4, (byte) 0x61, (byte) 0x47, (byte) 0xAE,
-        (byte) 0x13, (byte) 0x12, (byte) 0x4D, (byte) 0xD7, (byte) 0x5F, (byte) 0x81, (byte) 0xF2, (byte) 0x26,
-        (byte) 0x00, (byte) 0x43, (byte) 0x66, (byte) 0x1F, (byte) 0x1D, (byte) 0x81, (byte) 0x9D, (byte) 0x01,
-        (byte) 0x9A, (byte) 0x02, (byte) 0xFC, (byte) 0xD8, (byte) 0x5D, (byte) 0x72, (byte) 0x4A, (byte) 0xA1,
-        (byte) 0x32, (byte) 0xAD, (byte) 0x5E, (byte) 0x5D, (byte) 0xE4, (byte) 0x69, (byte) 0xC2, (byte) 0x7B,
-        (byte) 0xAB, (byte) 0x0D, (byte) 0xBA, (byte) 0xA1, (byte) 0x5A, (byte) 0x16, (byte) 0x83, (byte) 0xA1};
-            
     public static void allocate(ECConfig eccfg) {
         placeholder = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
         placeholder.initializeECPoint_SecP256r1();
@@ -163,9 +135,9 @@ public class CryptoOperations {
         xe_Bn = new Bignat(Consts.SHARE_SIZE_64, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         
         
-        resBn1 = new Bignat(Consts.MAX_BIGNAT_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh); // BUGBUG: make correct length
+        resBn1 = new Bignat(Consts.MAX_BIGNAT_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         resBn2 = new Bignat(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
-        resBn3 = new Bignat((short) 101, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        resBn3 = new Bignat(Consts.SHARE_SIZE_64, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         
         // AddPoint objects
         four_Bn = new Bignat((short) 32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
@@ -184,7 +156,7 @@ public class CryptoOperations {
         if (perfStop == (short) 2) {ISOException.throwIt((short) (Consts.PERF_ENCRYPT + perfStop));}
 
         // Preset KeyAgreement - we will use it twice so set it only once and reuse // 60ms
-        if (ECPointBase.ECMultiplHelper != null) { // BUGBUG jcarsim test
+        if (ECPointBase.ECMultiplHelper != null) { // Use prepared engine - cards with native support for EC
             ECPointBase.disposable_priv.setS(y_Bn, (short) 0, (short) y_Bn.length);
             ECPointBase.ECMultiplHelper.init(ECPointBase.disposable_priv); // Set multiplier        
         }
@@ -199,7 +171,7 @@ public class CryptoOperations {
             c2_EC.ScalarMultiplication(CryptoObjects.KeyPair.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
         }
         else {
-            // BUGBUG jcarsim test - no preprepared ECMultiplHelper
+            // Use this with JCMathLib
             c2_EC.ScalarMultiplication(CryptoObjects.KeyPair.GetY(), y_Bn, c2_EC); // y(xG)
         }
         
@@ -215,9 +187,8 @@ public class CryptoOperations {
             outOffset += placeholder.ScalarMultiplication(GenPoint, ECPointBase.ECMultiplHelper, outArray); // yG // 129ms 
         }
         else {
-            // BUGBUG: this for jcardsim test
-            short lenW = GenPoint.getW(ECPointBase.TempBuffer65, (short) 0); // Read base point into buffer
-            outOffset += placeholder.ScalarMultiplication(ECPointBase.TempBuffer65, (short) 0, lenW, y_Bn, outArray); // yG 
+            // Use this with JCMathLib
+            outOffset += placeholder.ScalarMultiplication(GenPoint, y_Bn, outArray); // yG 
         }
         if (perfStop == (short) 6) {ISOException.throwIt((short) (Consts.PERF_ENCRYPT + perfStop));}
 
@@ -233,7 +204,7 @@ public class CryptoOperations {
         if (perfStop == (short) 2) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}            
 
         short len;
-        if (ECPointBase.ECMultiplHelper != null) {
+        if (ECPointBase.ECMultiplHelperDecrypt != null) {
             // Use prepared engine - cards with native support for EC
             /* is already set from Reset method
              byte[] point = CryptoObjects.KeyPair.Getxi();
@@ -242,7 +213,7 @@ public class CryptoOperations {
              */
             len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_SIZE_CARRY_65, ECPointBase.ECMultiplHelperDecrypt, outputArray); // -xyG
         } else {
-            // BUGBUG: this for jcardsim test
+            // Use this with JCMathLib
             len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_SIZE_CARRY_65, CryptoObjects.KeyPair.Getxi(), outputArray); // -xyG
         }        
 
@@ -262,8 +233,7 @@ public class CryptoOperations {
     public static short Sign(Bignat i, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset, short perfStop) {
         
         if (perfStop == (short) 1) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} //153ms
-        /*1. Check counter*/
-        
+        // 1. Check counter
         if (!MPCApplet.bIsSimulator) {
             if (CryptoObjects.signature_counter.lesser(i)==false) {
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
@@ -275,7 +245,7 @@ public class CryptoOperations {
         md.reset();
         md.update(Rn_plaintext_arr, plaintextOffset, Consts.SHARE_SIZE_CARRY_65); // Hash plaintext
         md.doFinal(Rn_plaintext_arr, (short) (plaintextOffset+Consts.SHARE_SIZE_CARRY_65), Consts.SHARE_SIZE_CARRY_65, e_arr, (short) 0); //Hash R_n
-		e_Bn.from_byte_array(Consts.SHARE_SIZE_32, (short) 0, e_arr, (short) 0);
+	e_Bn.from_byte_array(Consts.SHARE_SIZE_32, (short) 0, e_arr, (short) 0);
 
 		
 
@@ -296,6 +266,7 @@ public class CryptoOperations {
         xi_Bn.from_byte_array(Consts.SHARE_SIZE_32, (short) 0, CryptoObjects.KeyPair.Getxi(), (short) 0);
         //xe_Bn.mult(xi_Bn, e_Bn);  // 330ms
         xe_Bn.mult_RSATrick(xi_Bn, e_Bn); // 90ms
+        //test_multRSATrick(xi_Bn, e_Bn, null, xe_Bn);
 
         if (perfStop == (short) 6) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +111ms
         // Compute xe_Bn mod modulo_Bn 
@@ -346,7 +317,9 @@ public class CryptoOperations {
         // (xe_Bn * aBn)
         //resBn1.mult(aBn, xe_Bn);
         //resBn1.multRSATrick(aBn, xe_Bn);
-        resBn1.mult_rsa_trick(aBn, xe_Bn, aBn_pow_2, null);
+        resBn1.mult_rsa_trick(aBn, xe_Bn, aBn_pow_2, null); // as aBn is fixed, aBn^2 can be precomputed
+        //resBn1.mult_rsa_trick(aBn, xe_Bn, null, null); // BUGBUG: just for testing, return back option with aBn_pow_2
+        //test_multRSATrick(aBn, xe_Bn, null,resBn1);
         
         // ((n * a) >> k)
         // ((n * a) >> k) * r
@@ -356,8 +329,10 @@ public class CryptoOperations {
                 
         //resBn3.mult(modulo_Bn, resBn2);
         //resBn3.multRSATrick(modulo_Bn, resBn2);
-        resBn3.mult_rsa_trick(modulo_Bn, resBn2, modulo_Bn_pow_2, null);
-        
+        resBn3.mult_rsa_trick(modulo_Bn, resBn2, modulo_Bn_pow_2, null); // as modulo_Bn is fixed, modulo_Bn^2 can be precomputed
+        //resBn3.mult_rsa_trick(modulo_Bn, resBn2, null, null); // BUGBUG: just for testing, return back option with modulo_Bn_pow_2
+        //test_multRSATrick(modulo_Bn, resBn2, null, resBn3);
+
 
         // n - ((n * a) >> k) * r
         byte[] result = xe_Bn.as_byte_array();
@@ -370,7 +345,7 @@ public class CryptoOperations {
         
 
         if (perfStop == (short) 7) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +276ms  
-        xe_Bn.shrink(); // Resize to 32 Bytes
+        xe_Bn.shrink(); // Resize back to 32 Bytes
 
         if (perfStop == (short) 8) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +19ms
 
@@ -487,7 +462,10 @@ public class CryptoOperations {
     }    
     
     public static short Gen_R_i(byte[] i, byte[] secret_arr, byte[] output_arr) {
-    	return placeholder.ScalarMultiplication(SecP256r1.G, (short) 0, (short) SecP256r1.G.length, PRF(i, secret_arr), output_arr);
+        //PRF(i, secret_arr); is giving correct intermediate result as real card
+        //short lenW = GenPoint.getW(ECPointBase.TempBuffer65, (short) 0); // Read base point into buffer
+        //return placeholder.ScalarMultiplication(ECPointBase.TempBuffer65, (short) 0, lenW, PRF(i, secret_arr), output_arr); // yG 
+        return placeholder.ScalarMultiplication(GenPoint, PRF(i, secret_arr), output_arr); // yG 
     }
 
 

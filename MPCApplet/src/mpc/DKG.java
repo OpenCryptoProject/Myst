@@ -16,7 +16,7 @@ import javacard.framework.JCSystem;
 public class DKG {
     boolean PLAYERS_IN_RAM = true;
     boolean COMPUTE_Y_ONTHEFLY = true;
-    boolean IS_BACKDOORED_EXAMPLE = false; // if true, then applet will not follow protocol but generates backdoored applet instead
+    static boolean IS_BACKDOORED_EXAMPLE = false; // if true, then applet will not follow protocol but generates backdoored applet instead
             
     // Static shared Helper objects
     static MessageDigest md = null;
@@ -127,7 +127,8 @@ public class DKG {
                     priv.setS(privbytes_backdoored, (short) 0, (short) privbytes_backdoored.length);
                     ((ECPrivateKey) pair.getPrivate()).getS(x_i_Bn, (short) 0);
                     // Compute and set corresponding public key (to backdoored private one)
-                    CryptoOperations.placeholder.ScalarMultiplication(SecP256r1.G, (short) 0, (short) SecP256r1.G.length, privbytes_backdoored, tmp_arr);
+                    //CryptoOperations.placeholder.ScalarMultiplication(SecP256r1.G, (short) 0, (short) SecP256r1.G.length, privbytes_backdoored, tmp_arr);
+                    CryptoOperations.placeholder.ScalarMultiplication(CryptoOperations.GenPoint, privbytes_backdoored, tmp_arr);
                     pub.setW(tmp_arr, (short) 0, (short) 65);
                 }
                 else {
@@ -146,7 +147,8 @@ public class DKG {
         
         times_x_used += 1;
         
-        CryptoOperations.placeholder.ScalarMultiplication(SecP256r1.G, (short) 0, (short) SecP256r1.G.length, x_i_Bn, CARD_THIS_YS); // yG
+        //CryptoOperations.placeholder.ScalarMultiplication(SecP256r1.G, (short) 0, (short) SecP256r1.G.length, x_i_Bn, CARD_THIS_YS); // yG
+        CryptoOperations.placeholder.ScalarMultiplication(CryptoOperations.GenPoint, x_i_Bn, CARD_THIS_YS); // yG
         
         if (COMPUTE_Y_ONTHEFLY) {
             Y_EC_onTheFly.setW(CARD_THIS_YS, (short) 0, (short) CARD_THIS_YS.length);     
@@ -160,8 +162,8 @@ public class DKG {
 
         // Pre-prepare engine for faster Decrypt later
         if (bPrepareDecryption) {
-            ECPointBase.disposable_privDecrypt.setS(x_i_Bn, (short) 0, (short) x_i_Bn.length);
-            if (ECPointBase.ECMultiplHelperDecrypt != null) { // BUGBUG jcarsim test
+            if (ECPointBase.ECMultiplHelperDecrypt != null) { // Use prepared engine - cards with native support for EC
+                ECPointBase.disposable_privDecrypt.setS(x_i_Bn, (short) 0, (short) x_i_Bn.length);
                 ECPointBase.ECMultiplHelperDecrypt.init(ECPointBase.disposable_privDecrypt);
             }
         }

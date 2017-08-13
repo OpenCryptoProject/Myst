@@ -88,7 +88,8 @@ public class ECConfig {
     public void setECC256Config() {
         reset();
         MODULO_RSA_ENGINE_MAX_LENGTH_BITS = (short) 512;
-        MULT_RSA_ENGINE_MAX_LENGTH_BITS = (short) 768;        
+        //MULT_RSA_ENGINE_MAX_LENGTH_BITS = (short) 768;
+        MULT_RSA_ENGINE_MAX_LENGTH_BITS = (short) 1024; // BUGBUG: test MPC Sign
         MAX_POINT_SIZE = (short) 64;
         computeDerivedLengths();
     }

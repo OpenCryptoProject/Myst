@@ -77,6 +77,10 @@ public class ECPointBase implements javacard.security.ECKey {
     public void ScalarMultiplication(ECPointBase BasePoint, byte[] value, ECPointBase ResultECPoint) {
         ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
     }
+    public short ScalarMultiplication(ECPointBase BasePoint, byte[] value, byte[] result) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
+        return -1;
+    }
     
     
     
