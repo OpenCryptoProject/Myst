@@ -3,6 +3,10 @@ package mpc;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 
+/**
+ *
+ * @author Vasilios Mavroudis and Petr Svenda
+ */
 public class Utils {
         static byte[] m_shortByteArray = null; // used to return short represenated as array of 2 bytes
         public static void allocate() {

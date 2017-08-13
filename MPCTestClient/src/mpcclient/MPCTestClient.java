@@ -58,7 +58,7 @@ import mpc.SecP256r1;
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class MPCTestClient {
-    public final static boolean _DEBUG = false;
+    public final static boolean _DEBUG = true;
     public final static boolean _SIMULATOR = false;
     public final static boolean _PROFILE_PERFORMANCE = false;
     public final static boolean _FAIL_ON_ASSERT = false;
@@ -108,9 +108,9 @@ public class MPCTestClient {
             
             MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
             runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
+            //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 1000;
             MPCProtocol_playground(runCfg);
-            //MPCProtocol_playground(runCfg);
         } catch (Exception e) {
                 e.printStackTrace();
         }
@@ -984,6 +984,7 @@ public class MPCTestClient {
         long elapsed = -System.currentTimeMillis();
         int repeats = 100000;
         for (int i = 1; i < repeats; i++) {
+            plaintext[5] = (byte) (i % 256);
             CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(plaintext, Rn));
             ResponseAPDU response = transmit(channel, cmd);
         }

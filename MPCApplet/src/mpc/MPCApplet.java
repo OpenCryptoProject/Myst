@@ -10,6 +10,10 @@ import javacard.framework.Util;
 
 //import javacardx.framework.math.BigNumber;
 
+/**
+ *
+ * @author Vasilios Mavroudis and Petr Svenda
+ */
 public class MPCApplet extends Applet {
     ECConfig m_ecc;
     ECCurve m_curve;

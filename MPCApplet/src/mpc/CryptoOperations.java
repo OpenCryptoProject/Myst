@@ -8,8 +8,11 @@ import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.RandomData;
-import static mpc.MPCApplet.bIsSimulator;
 
+/**
+ *
+ * @author Vasilios Mavroudis and Petr Svenda
+ */
 public class CryptoOperations {
     static ECPointBase placeholder = null;
     static ECPointBase c2_EC = null;   
@@ -181,15 +184,24 @@ public class CryptoOperations {
         if (perfStop == (short) 2) {ISOException.throwIt((short) (Consts.PERF_ENCRYPT + perfStop));}
 
         // Preset KeyAgreement - we will use it twice so set it only once and reuse // 60ms
-        ECPointBase.disposable_priv.setS(y_Bn, (short) 0, (short) y_Bn.length);
-        ECPointBase.ECMultiplHelper.init(ECPointBase.disposable_priv); // Set multiplier        
+        if (ECPointBase.ECMultiplHelper != null) { // BUGBUG jcarsim test
+            ECPointBase.disposable_priv.setS(y_Bn, (short) 0, (short) y_Bn.length);
+            ECPointBase.ECMultiplHelper.init(ECPointBase.disposable_priv); // Set multiplier        
+        }
 
         if (perfStop == (short) 3) {ISOException.throwIt((short) (Consts.PERF_ENCRYPT + perfStop));}
         
         // Gen c2 first as we will reuse same output array
         // c2 = m + (xG) + (yG) = y(xG) + m = yPub + m
         //ECPointBase.ScalarMultiplication(CryptoObjects.KeyPair.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
-        c2_EC.ScalarMultiplication(CryptoObjects.KeyPair.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
+        if (ECPointBase.ECMultiplHelper != null) { 
+            // Use prepared engine - cards with native support for EC
+            c2_EC.ScalarMultiplication(CryptoObjects.KeyPair.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
+        }
+        else {
+            // BUGBUG jcarsim test - no preprepared ECMultiplHelper
+            c2_EC.ScalarMultiplication(CryptoObjects.KeyPair.GetY(), y_Bn, c2_EC); // y(xG)
+        }
         
         if (perfStop == (short) 4) {ISOException.throwIt((short) (Consts.PERF_ENCRYPT + perfStop));}
 
@@ -198,15 +210,18 @@ public class CryptoOperations {
         if (perfStop == (short) 5) {ISOException.throwIt((short) (Consts.PERF_ENCRYPT + perfStop));}
 
         // Gen c1 now 
-        //outOffset += ECPointBase.ScalarMultiplication(GenPoint, ECPointBase.ECMultiplHelper, outArray); // yG // 129ms // use this for nxp
-        // this for jcardsim test
-        short lenW = GenPoint.getW(ECPointBase.TempBuffer65, (short) 0); // Read base point into buffer
-        outOffset += placeholder.ScalarMultiplication(ECPointBase.TempBuffer65, (short) 0, lenW, y_Bn, outArray); // yG 
-        // end for jcardsim test
-
+        if (ECPointBase.ECMultiplHelper != null) {
+            // Use prepared engine - cards with native support for EC
+            outOffset += placeholder.ScalarMultiplication(GenPoint, ECPointBase.ECMultiplHelper, outArray); // yG // 129ms 
+        }
+        else {
+            // BUGBUG: this for jcardsim test
+            short lenW = GenPoint.getW(ECPointBase.TempBuffer65, (short) 0); // Read base point into buffer
+            outOffset += placeholder.ScalarMultiplication(ECPointBase.TempBuffer65, (short) 0, lenW, y_Bn, outArray); // yG 
+        }
         if (perfStop == (short) 6) {ISOException.throwIt((short) (Consts.PERF_ENCRYPT + perfStop));}
 
-        outOffset += c2_EC.getW(outArray, outOffset);
+        outOffset += c2_EC.getW(outArray, outOffset); // append c2_EC behind yG
 
         return outOffset;
     }
@@ -216,12 +231,20 @@ public class CryptoOperations {
 
         if (perfStop == (short) 1) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}   
         if (perfStop == (short) 2) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}            
-/* is already set from Reset method
-        byte[] point = CryptoObjects.KeyPair.Getxi();
-        EC_Utils.disposable_privDecrypt.setS(point, (short) 0, (short) point.length);
-        EC_Utils.ECMultiplHelperDecrypt.init(EC_Utils.disposable_privDecrypt); // Set multiplier
-*/        
-        short len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_SIZE_CARRY_65, ECPointBase.ECMultiplHelperDecrypt, outputArray); // -xyG
+
+        short len;
+        if (ECPointBase.ECMultiplHelper != null) {
+            // Use prepared engine - cards with native support for EC
+            /* is already set from Reset method
+             byte[] point = CryptoObjects.KeyPair.Getxi();
+             EC_Utils.disposable_privDecrypt.setS(point, (short) 0, (short) point.length);
+             EC_Utils.ECMultiplHelperDecrypt.init(EC_Utils.disposable_privDecrypt); // Set multiplier
+             */
+            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_SIZE_CARRY_65, ECPointBase.ECMultiplHelperDecrypt, outputArray); // -xyG
+        } else {
+            // BUGBUG: this for jcardsim test
+            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_SIZE_CARRY_65, CryptoObjects.KeyPair.Getxi(), outputArray); // -xyG
+        }        
 
         if (perfStop == (short) 3) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}
 

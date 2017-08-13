@@ -23,3 +23,6 @@ hs_err_pid*
 
 /MPCTestClient/build/
 /MPCTestClient/nbproject/
+/MPCTestClient/MPC_PERF_log_*
+
+/experiments/

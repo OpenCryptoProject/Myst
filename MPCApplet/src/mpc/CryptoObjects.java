@@ -2,6 +2,10 @@ package mpc;
 
 import javacard.framework.JCSystem;
 
+/**
+ *
+ * @author Vasilios Mavroudis and Petr Svenda
+ */
 public class CryptoObjects {
     // Keys
     public static DKG KeyPair;

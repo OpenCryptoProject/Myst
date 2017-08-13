@@ -1,5 +1,9 @@
 package mpc;
 
+/**
+ *
+ * @author Vasilios Mavroudis and Petr Svenda
+ */
 public class Parameters {
 	// State
 	public static boolean SETUP = false; // Have the scheme parameters been set?

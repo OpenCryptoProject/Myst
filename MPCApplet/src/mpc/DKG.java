@@ -9,6 +9,10 @@ import javacard.security.MessageDigest;
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 
+/**
+ *
+ * @author Vasilios Mavroudis and Petr Svenda
+ */
 public class DKG {
     boolean PLAYERS_IN_RAM = true;
     boolean COMPUTE_Y_ONTHEFLY = true;

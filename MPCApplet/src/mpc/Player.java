@@ -4,7 +4,7 @@ import javacard.framework.Util;
 
 /**
  *
- * @author petrs
+ * @author Vasilios Mavroudis and Petr Svenda
  */
 public class Player {
     public byte[] hash = null;          // Hash of player's input

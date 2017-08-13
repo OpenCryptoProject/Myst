@@ -10,7 +10,7 @@ import javacard.security.KeyPair;
 
 /**
  *
- * @author Petr Svenda
+ * @author Vasilios Mavroudis and Petr Svenda
  */
 public class ECPointBase implements javacard.security.ECKey {
     static KeyAgreement ECMultiplHelper = null;
@@ -73,6 +73,9 @@ public class ECPointBase implements javacard.security.ECKey {
     public short ScalarMultiplication(byte[] BasePoint, short BasePointOffset, short BasePointLen, KeyAgreement ecKeyAgreement, byte[] result) {
         ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
         return -1;
+    }
+    public void ScalarMultiplication(ECPointBase BasePoint, byte[] value, ECPointBase ResultECPoint) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
     }
     
     
