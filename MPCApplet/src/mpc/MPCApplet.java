@@ -70,11 +70,11 @@ public class MPCApplet extends Applet {
 
         if (buf[ISO7816.OFFSET_CLA] == Consts.CLA_MPC) {
             byte[] apdubuf = apdu.getBuffer();
-            short dataLen = apdu.setIncomingAndReceive(); // returns length of data field
 
             short p1 = (short) (apdubuf[ISO7816.OFFSET_P1] & 0x00FF);
             short p2 = (short) (apdubuf[ISO7816.OFFSET_P2] & 0x00FF);
             short len;
+            short dataLen;
 
             switch (buf[ISO7816.OFFSET_INS]) {
                 //
@@ -90,59 +90,26 @@ public class MPCApplet extends Applet {
                     Reset();
                     break;
 
-                    
-                //    
-                // DEBUG methods    
-                //
-                case Consts.INS_TESTRSAMULT:
-                    break;
-                case Consts.INS_TESTECC:
-                    TestNativeECC(apdu, dataLen);
-                    break;
-
-                case Consts.INS_SET_BACKDOORED_EXAMPLE:
-                    // If p1 == 0x55, then set flag which will cause applet to behave as example backdoored one
-                    if (p1 == (byte) 0x55) {
-                        DKG.IS_BACKDOORED_EXAMPLE = true;
-                        // Return the value of backdoored key
-                        Util.arrayCopyNonAtomic(DKG.privbytes_backdoored, (short) 0, apdubuf, (short) 0, (short) DKG.privbytes_backdoored.length);
-                        apdu.setOutgoingAndSend((short) 0, (short) DKG.privbytes_backdoored.length);
-                    } else {
-                        DKG.IS_BACKDOORED_EXAMPLE = false;
-                    }
-                    break;
-                case Consts.INS_ADDPOINTS:
-                    len = CryptoOperations.addPoint(apdubuf, ISO7816.OFFSET_CDATA, dataLen, apdubuf, (short) 0, p1);
-                    apdu.setOutgoingAndSend((short) 0, len);
-                    break;
-
                 //    
                 // Key Generation
                 //
                 case Consts.INS_KEYGEN_INIT:
-                    CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);
+                    KeyGen_Init(apdu);
                     break;
-                case Consts.INS_KEYGEN_RETRIEVE_HASH:
-                    len = CryptoObjects.KeyPair.GetHash(apdubuf, (short) 0);
-                    apdu.setOutgoingAndSend((short) 0, len);
+                case Consts.INS_KEYGEN_RETRIEVE_COMMITMENT:
+                    KeyGen_RetrieveCommitment(apdu);
                     break;
-                case Consts.INS_KEYGEN_STORE_HASH:
-                    CryptoObjects.KeyPair.SetHash(p1, apdubuf, ISO7816.OFFSET_CDATA, dataLen);
-                    break;
-                case Consts.INS_KEYGEN_STORE_PUBKEY:
-                    CryptoObjects.KeyPair.SetYs(p1, apdubuf, ISO7816.OFFSET_CDATA, dataLen);
+                case Consts.INS_KEYGEN_STORE_COMMITMENT:
+                    KeyGen_StoreCommitment(apdu);
                     break;
                 case Consts.INS_KEYGEN_RETRIEVE_PUBKEY:
-                    len = CryptoObjects.KeyPair.GetYi(apdubuf, (short) 0);
-                    apdu.setOutgoingAndSend((short) 0, len);
+                    KeyGen_RetrievePublicKey(apdu);
                     break;
-                case Consts.INS_KEYGEN_RETRIEVE_PRIVKEY:
-                    len = CryptoObjects.KeyPair.Getxi(apdubuf, (short) 0);
-                    apdu.setOutgoingAndSend((short) 0, len);
+                case Consts.INS_KEYGEN_STORE_PUBKEY:
+                    KeyGen_StorePublicKey(apdu);
                     break;
                 case Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY:
-                    len = CryptoObjects.KeyPair.GetY().getW(apdubuf, (short) 0);
-                    apdu.setOutgoingAndSend((short) 0, len);
+                    KeyGen_RetrieveAggregatedPublicKey(apdu);
                     break;
                     
                     
@@ -151,12 +118,14 @@ public class MPCApplet extends Applet {
                 // Encrypt and decrypt
                 //
                 case Consts.INS_ENCRYPT:
+                    dataLen = apdu.setIncomingAndReceive();
                     len = CryptoOperations.Encrypt(apdubuf, ISO7816.OFFSET_CDATA, apdubuf, p1);
                     apdu.setOutgoingAndSend((short) 0, len);
                     break;
 
                 // Decrypt
                 case Consts.INS_DECRYPT:
+                    dataLen = apdu.setIncomingAndReceive();
                     len = CryptoOperations.DecryptShare(apdubuf, ISO7816.OFFSET_CDATA, apdubuf, p1);
                     apdu.setOutgoingAndSend((short) 0, len);
                     break;
@@ -165,11 +134,13 @@ public class MPCApplet extends Applet {
                 // Signing
                 //
                 case Consts.INS_SIGN_RETRIEVE_RI:
+                    dataLen = apdu.setIncomingAndReceive();
                     len = CryptoOperations.Gen_R_i(Utils.shortToByteArray(p1), CryptoObjects.secret_seed, apdubuf);
                     apdu.setOutgoingAndSend((short) 0, len);
                     break;
 
                 case Consts.INS_SIGN:
+                    dataLen = apdu.setIncomingAndReceive();
                     CryptoObjects.Sign_counter.from_byte_array((short) 2, (short) 0, Utils.shortToByteArray((short) (p1 & 0xff)), (short) 0);
 
                     len = CryptoOperations.Sign(CryptoObjects.Sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0, p2);
@@ -216,6 +187,37 @@ public class MPCApplet extends Applet {
                     apdu.setOutgoingAndSend((short) 0, len);
                     break;
 */                 
+                //    
+                // DEBUG methods    
+                //
+                case Consts.INS_TESTRSAMULT:
+                    break;
+                case Consts.INS_TESTECC:
+                    dataLen = apdu.setIncomingAndReceive();
+                    TestNativeECC(apdu, dataLen);
+                    break;
+
+                case Consts.INS_SET_BACKDOORED_EXAMPLE:
+                    // If p1 == 0x55, then set flag which will cause applet to behave as example backdoored one
+                    if (p1 == (byte) 0x55) {
+                        DKG.IS_BACKDOORED_EXAMPLE = true;
+                        // Return the value of backdoored key
+                        Util.arrayCopyNonAtomic(DKG.privbytes_backdoored, (short) 0, apdubuf, (short) 0, (short) DKG.privbytes_backdoored.length);
+                        apdu.setOutgoingAndSend((short) 0, (short) DKG.privbytes_backdoored.length);
+                    } else {
+                        DKG.IS_BACKDOORED_EXAMPLE = false;
+                    }
+                    break;
+                case Consts.INS_ADDPOINTS:
+                    dataLen = apdu.setIncomingAndReceive();
+                    len = CryptoOperations.addPoint(apdubuf, ISO7816.OFFSET_CDATA, dataLen, apdubuf, (short) 0, p1);
+                    apdu.setOutgoingAndSend((short) 0, len);
+                    break;
+                case Consts.INS_KEYGEN_RETRIEVE_PRIVKEY_BUGBUG:
+                    dataLen = apdu.setIncomingAndReceive();
+                    len = CryptoObjects.KeyPair.Getxi(apdubuf, (short) 0);
+                    apdu.setOutgoingAndSend((short) 0, len);
+                    break;
 
 
                 default:
@@ -225,7 +227,7 @@ public class MPCApplet extends Applet {
             ISOException.throwIt(ISO7816.SW_CLA_NOT_SUPPORTED);
         }
     }
-
+    
     void updateAfterReset() {
         if (m_curve != null) {
             m_curve.updateAfterReset();
@@ -342,7 +344,127 @@ public class MPCApplet extends Applet {
     void SetTrustedPubKeyHashes(APDU apdu) {
         // TODO
     }
+    
+    /* 
+    At the first step of the protocol, each member of Q runs Algorithm 4.1 and generates
+     a triplet consisting of: 1) a share xi , which is a randomly sampled
+     element from Zn, 2) an elliptic curve point Yi , and 3) a commitment
+     to Yi denoted hi.
+    */
+    void KeyGen_Init(APDU apdu) {
+        // TODO: Check state
+        
+        // Generate new triplet
+        CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);        
+    }
+    
+    /**
+     * Upon the generation of the triplet, the members perform a pairwise
+     * exchange of their commitments. KeyGen_RetrieveCommitment returns commitment for this card
+     * @param apdu 
+     */
+    void KeyGen_RetrieveCommitment(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();
 
+        // TODO: Check state
+
+        // Obtain commitment for this card
+        len = CryptoObjects.KeyPair.GetHash(apdubuf, (short) 0);
+        // TODO: sign the commitment (if not signed later by host)
+        
+        // TODO: Switch into next state
+        apdu.setOutgoingAndSend((short) 0, len);
+    }    
+    
+    /**
+     * Upon the generation of the triplet, the members perform a pairwise
+     * exchange of their commitments by the end of which, they all hold a
+     * set H = {h1,h2, ..,ht }. The commitment exchange terminates when |Hq | =
+     * t ∀q ∈ Q
+     * @param apdu 
+     */
+    void KeyGen_StoreCommitment(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();    
+    
+        // TODO: Check state
+        
+        // TODO: verify signature on commitment
+
+        // Store provided commitment
+        CryptoObjects.KeyPair.SetHash(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
+        
+        // TODO: check for termination of store commitment phase 
+    }
+    
+    /**
+     * Another round of exchanges starts (KeyGen_RetrievePublicKey and KeyGen_StorePublicKey), this time for the shares of Yagg
+     * The commitment exchange round (KeyGen_RetrieveCommitment and KeyGen_StoreCommitment) is of uttermost
+     * importance as it forces the participants to commit to a share of Yagg,
+     * before receiving the shares of others. This prevents attacks where an 
+     * adversary first collects the shares of others, and then crafts its share so as to bias the final pair,
+     * towards a secret key they know.
+     * @param apdu 
+     */
+    void KeyGen_RetrievePublicKey(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();
+
+        // TODO: Check state
+        
+        // Obtain public key
+        len = CryptoObjects.KeyPair.GetYi(apdubuf, (short) 0);
+        // TODO: sign the commitment (if not signed later by host)
+        // TODO: Switch into next state
+
+        apdu.setOutgoingAndSend((short) 0, len);
+    }
+    
+    /**
+     * Verify the validity of Y’s elements against their previous commitments KeyGen_StoreCommitment().
+     * If one or more commitments fail the verification then the member infers that an error (either intentional or
+     * unintentional) occurred and the protocol is terminated.
+     * @param apdu 
+     */
+    void KeyGen_StorePublicKey(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();
+
+        // TODO: Check state
+        // TODO: verify signature on public key
+        // Store provided public key
+        CryptoObjects.KeyPair.SetYs(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
+        
+        // TODO: if commitment check fails, terminate protocol and reset to intial state (and return error)
+
+        // TODO: check for termination of store pubkeys phase 
+    }    
+    
+    /** 
+     * If all commitments are successfully verified, then the member executes
+     * Algorithm 4.3 and returns the result to the remote host. Note
+     * that it is important to return Yagg, as well as the individual shares Yi
+     * , as this protects against integrity attacks, where malicious ICs return
+     * a different share than the one they committed to during the protocol. 
+     * Moreover, since Yi are shares of the public key, they are also
+     * assumed to be public, and available to any untrusted party.
+     */
+    void KeyGen_RetrieveAggregatedPublicKey(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();
+
+        // TODO: Check state
+        
+        len = CryptoObjects.KeyPair.GetY().getW(apdubuf, (short) 0);
+        
+        // TODO: sign output data (if not signed later by host)
+        // TODO: Switch into next state
+
+        apdu.setOutgoingAndSend((short) 0, len);
+    }    
+    
+    
     public final static byte[] xe_Bn_testInput1 = {
         (byte) 0x03, (byte) 0xBD, (byte) 0x28, (byte) 0x6B, (byte) 0x6A, (byte) 0x22, (byte) 0x1F, (byte) 0x1B,
         (byte) 0xFC, (byte) 0x08, (byte) 0xC6, (byte) 0xC5, (byte) 0xB0, (byte) 0x3F, (byte) 0x0B, (byte) 0xEA,

@@ -23,11 +23,11 @@ public class Consts {
 
     // KeyGen Operations
     public final static byte INS_KEYGEN_INIT			= (byte) 0x10;
-    public final static byte INS_KEYGEN_RETRIEVE_HASH		= (byte) 0x11;
-    public final static byte INS_KEYGEN_STORE_HASH		= (byte) 0x12;
+    public final static byte INS_KEYGEN_RETRIEVE_COMMITMENT	= (byte) 0x11;
+    public final static byte INS_KEYGEN_STORE_COMMITMENT	= (byte) 0x12;
     public final static byte INS_KEYGEN_STORE_PUBKEY		= (byte) 0x13;
     public final static byte INS_KEYGEN_RETRIEVE_PUBKEY         = (byte) 0x14;
-    public final static byte INS_KEYGEN_RETRIEVE_PRIVKEY	= (byte) 0x15;
+    public final static byte INS_KEYGEN_RETRIEVE_PRIVKEY_BUGBUG	= (byte) 0x15;
     public final static byte INS_KEYGEN_RETRIEVE_AGG_PUBKEY	= (byte) 0x16;
 
     // Encryption/Decryption Operations

@@ -401,11 +401,13 @@ public class MPCTestClient {
             combinedTime += m_lastTransmitTime;
         }
 
-        // Retrieve Secret
+
+        /*// Retrieve Secret - only for testing BUGBUG
         operationName = "Retrieve Private Key (INS_KEYGEN_RETRIEVE_PRIVKEY)";
-        System.out.format(format, operationName, RetrievePrivKey(channel));
+        System.out.format(format, operationName, RetrievePrivKey_DebugOnly(channel));
         writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
         combinedTime += m_lastTransmitTime;
+        */
         
         // Retrieve Aggregated Y
         operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
@@ -736,7 +738,7 @@ public class MPCTestClient {
 
 	private static boolean RetrievePubKeyHash(CardChannel channel)
 			throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_RETRIEVE_HASH,
+		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_RETRIEVE_COMMITMENT,
 				0x00, 0x00);
 		ResponseAPDU response = transmit(channel, cmd);
 		return checkSW(response);
@@ -744,7 +746,7 @@ public class MPCTestClient {
 
 	private static boolean StorePubKeyHash(CardChannel channel, int id,
 			byte[] hash_arr) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_HASH,
+		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_COMMITMENT,
 				id, 0x00, hash_arr);
 		ResponseAPDU response = transmit(channel, cmd);
 		return checkSW(response);
@@ -758,10 +760,10 @@ public class MPCTestClient {
 		return checkSW(response);
 	}
 
-	private static boolean RetrievePrivKey(CardChannel channel)
+	private static boolean RetrievePrivKey_DebugOnly(CardChannel channel)
 			throws Exception {
 		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-				                    Consts.INS_KEYGEN_RETRIEVE_PRIVKEY, 0x0, 0x0);
+				                    Consts.INS_KEYGEN_RETRIEVE_PRIVKEY_BUGBUG, 0x0, 0x0);
 		ResponseAPDU response = transmit(channel, cmd);
 
 		// Store Secret
