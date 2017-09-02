@@ -37,9 +37,9 @@ public class ECPointBase implements javacard.security.ECKey {
         disposable_privDecrypt = (ECPrivateKey) disposable_pairDecrypt.getPrivate();
         disposable_pairDecrypt.genKeyPair();
 
-        TempBuffer65 = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-        pointTpmArray = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-        pt_A_arr = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        TempBuffer65 = JCSystem.makeTransientByteArray(Consts.SHARE_DOUBLE_SIZE_CARRY, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        pointTpmArray = JCSystem.makeTransientByteArray(Consts.SHARE_DOUBLE_SIZE_CARRY, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        pt_A_arr = JCSystem.makeTransientByteArray(Consts.SHARE_DOUBLE_SIZE_CARRY, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
     }
 
     public void initializeECPoint_SecP256r1() {
@@ -99,7 +99,7 @@ public class ECPointBase implements javacard.security.ECKey {
             PointA.getW(pt_A_arr, (short) 0);
             ResultECPoint.setW(pt_A_arr, (short) 0, (short) pt_A_arr.length);
         }
-        ResultECPoint.AddPoint(PointB, PointBOffset, Consts.SHARE_SIZE_CARRY_65);
+        ResultECPoint.AddPoint(PointB, PointBOffset, Consts.SHARE_DOUBLE_SIZE_CARRY);
     }
     
     void AddPoint(byte[] data, short dataOffset, short dataLen) {

@@ -82,11 +82,11 @@ public class Consts {
     public final static byte TLV_TYPE_EXAMPLEBACKDOOR   = (byte) 0x46;
 
     // Lengths
-    public static final short RND_SIZE = (short) 32; // 32 Bytes, should be
     public static final byte CARD_ID_LONG_LENGTH = (byte) 16;   // Length of unique card ID generated during applet install
     
-    public static final short SHARE_SIZE_32 = (short) 32;       // TODO: find better name for constant
-    public static final short SHARE_SIZE_64 = (short) 64;       // TODO: find better name for constant
-    public static final short SHARE_SIZE_CARRY_65 = (short) 65; // TODO: find better name for constant
-    public static final short MAX_BIGNAT_SIZE = (short) 129; // TODO: find better name for constant
+    public static final short BASIC_ECC_LENGTH = (short) 32; // 32 => 256b ECC
+    public static final short SHARE_BASIC_SIZE = BASIC_ECC_LENGTH;       
+    public static final short SHARE_DOUBLE_SIZE = (short) (2 * SHARE_BASIC_SIZE);           // intermediate result of multiplication operation with shares (double bit length)
+    public static final short SHARE_DOUBLE_SIZE_CARRY = (short) (SHARE_DOUBLE_SIZE + 1);    // double intermediate result + 1 byte carry  
+    public static final short SECRET_SEED_SIZE = BASIC_ECC_LENGTH;
 }

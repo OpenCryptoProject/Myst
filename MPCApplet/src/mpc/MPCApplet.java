@@ -248,9 +248,9 @@ public class MPCApplet extends Applet {
 
         CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);
         //CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
-        CryptoOperations.randomData.generateData(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_SIZE_32);
+        CryptoOperations.randomData.generateData(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE);
         if (DKG.IS_BACKDOORED_EXAMPLE) {
-            Util.arrayFillNonAtomic(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_SIZE_32, (byte) 0x33);
+            Util.arrayFillNonAtomic(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
         }
         Parameters.SETUP = true; // Ok, done
     }

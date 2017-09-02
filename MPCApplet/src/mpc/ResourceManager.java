@@ -60,7 +60,7 @@ public class ResourceManager {
         memAlloc = new ObjectAllocator();
         memAlloc.setAllAllocatorsRAM();
         //if required, memory for helper objects and arrays can be in persistent memory to save RAM (or some tradeoff)       
-        //ObjectAllocator.setAllAllocatorsEEPROM();  //ObjectAllocator.setAllocatorsTradeoff();
+        //memAlloc.setAllAllocatorsEEPROM();  //memAlloc.setAllocatorsTradeoff();
         
 
         // Multiplication speedup engines and arrays used by Bignat.mult_RSATrick()

@@ -57,27 +57,27 @@ public class DKG {
         //GenPoint = ECPointBuilder.buildECPoint(ECPointBuilder.TYPE_EC_FP_POINT, (short) SecP256r1.KEY_LENGTH);
         //GenPoint.setW(SecP256r1.G, (short) 0, (short) SecP256r1.G.length);
         this.pair = theCurve.newKeyPair(this.pair);
-        x_i_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-        copy_x_i_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-        tmp_arr = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        x_i_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        copy_x_i_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        tmp_arr = JCSystem.makeTransientByteArray(Consts.SHARE_DOUBLE_SIZE_CARRY, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
         
         ///////////
         //Arrays//
         //////////
         players = new Player[Consts.MAX_N_PLAYERS];
         if (COMPUTE_Y_ONTHEFLY) {
-            CARD_THIS_YS = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+            CARD_THIS_YS = JCSystem.makeTransientByteArray(Consts.SHARE_DOUBLE_SIZE_CARRY, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
         }
         for (short i = 0; i < Consts.MAX_N_PLAYERS; i++) {
             players[i] = new Player();
             if (PLAYERS_IN_RAM) {
                 if (!COMPUTE_Y_ONTHEFLY) {
-                    players[i].Ys = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+                    players[i].Ys = JCSystem.makeTransientByteArray(Consts.SHARE_DOUBLE_SIZE_CARRY, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
                 }
-                players[i].hash = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+                players[i].hash = JCSystem.makeTransientByteArray(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
             } else {
-                players[i].Ys = new byte[Consts.SHARE_SIZE_CARRY_65];
-                players[i].hash = new byte[Consts.SHARE_SIZE_32];
+                players[i].Ys = new byte[Consts.SHARE_DOUBLE_SIZE_CARRY];
+                players[i].hash = new byte[Consts.SHARE_BASIC_SIZE];
             }
         }
 
@@ -157,7 +157,7 @@ public class DKG {
         players[CARD_INDEX_THIS].bYsValid = true;
         players_shares_count++; // share for this card is included
         md.reset();
-        md.doFinal(CARD_THIS_YS, (short) 0, Consts.SHARE_SIZE_CARRY_65, players[CARD_INDEX_THIS].hash, (short) 0);
+        md.doFinal(CARD_THIS_YS, (short) 0, Consts.SHARE_DOUBLE_SIZE_CARRY, players[CARD_INDEX_THIS].hash, (short) 0);
         players[CARD_INDEX_THIS].bHashValid = true;
 
         // Pre-prepare engine for faster Decrypt later
@@ -405,7 +405,7 @@ public class DKG {
         if (!players[index].bHashValid || !players[index].bYsValid) {
             return false;
         } else {
-            return VerifyPair(players[index].Ys, (short) 0, Consts.SHARE_SIZE_CARRY_65, players[index].hash);
+            return VerifyPair(players[index].Ys, (short) 0, Consts.SHARE_DOUBLE_SIZE_CARRY, players[index].hash);
         }
     }
 
@@ -413,7 +413,7 @@ public class DKG {
         md.reset();
         md.doFinal(Ys, YsOffset, YsLength, tmp_arr, (short) 0);
         if (Util.arrayCompare(tmp_arr, (short) 0, hash,
-                (short) 0, Consts.SHARE_SIZE_32) != 0) {
+                (short) 0, Consts.SHARE_BASIC_SIZE) != 0) {
             return false;
         }
         else {

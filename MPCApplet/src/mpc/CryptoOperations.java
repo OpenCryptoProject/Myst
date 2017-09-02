@@ -111,33 +111,32 @@ public class CryptoOperations {
         
         randomData = RandomData.getInstance(RandomData.ALG_SECURE_RANDOM);
         
-        y_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        y_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
         
-        encResult = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        encResult = JCSystem.makeTransientByteArray(Consts.SHARE_DOUBLE_SIZE_CARRY, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
         
-        e_arr = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        e_arr = JCSystem.makeTransientByteArray(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
         
         md = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, false);
         
-        tmp_k_n = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-        prf_result = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        tmp_k_n = JCSystem.makeTransientByteArray(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+        prf_result = JCSystem.makeTransientByteArray(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
         
-        modulo_Bn = new Bignat(Consts.RND_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        modulo_Bn = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
         
-        aBn = new mpc.Bignat(Consts.SHARE_SIZE_64, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        aBn = new mpc.Bignat(Consts.SHARE_DOUBLE_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         
         aBn.set_from_byte_array((short) (aBn.length() - (short) r_for_BigInteger.length), r_for_BigInteger, (short) 0, (short) r_for_BigInteger.length);
         
-        e_Bn = new Bignat(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
-        s_Bn = new Bignat(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
-        xi_Bn = new Bignat(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
-        xe_Bn = new Bignat(Consts.SHARE_SIZE_64, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        e_Bn = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        s_Bn = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        xi_Bn = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        xe_Bn = new Bignat(Consts.SHARE_DOUBLE_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         
-        
-        resBn1 = new Bignat(Consts.MAX_BIGNAT_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
-        resBn2 = new Bignat(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
-        resBn3 = new Bignat(Consts.SHARE_SIZE_64, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        resBn1 = new Bignat((short) ((short) (eccfg.bnh.MULT_RSA_ENGINE_MAX_LENGTH_BITS / 8) + 1), JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        resBn2 = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        resBn3 = new Bignat(Consts.SHARE_DOUBLE_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         
         // AddPoint objects
         four_Bn = new Bignat((short) 32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
@@ -211,10 +210,10 @@ public class CryptoOperations {
              EC_Utils.disposable_privDecrypt.setS(point, (short) 0, (short) point.length);
              EC_Utils.ECMultiplHelperDecrypt.init(EC_Utils.disposable_privDecrypt); // Set multiplier
              */
-            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_SIZE_CARRY_65, ECPointBase.ECMultiplHelperDecrypt, outputArray); // -xyG
+            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, ECPointBase.ECMultiplHelperDecrypt, outputArray); // -xyG
         } else {
             // Use this with JCMathLib
-            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_SIZE_CARRY_65, CryptoObjects.KeyPair.Getxi(), outputArray); // -xyG
+            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, CryptoObjects.KeyPair.Getxi(), outputArray); // -xyG
         }        
 
         if (perfStop == (short) 3) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}
@@ -243,9 +242,9 @@ public class CryptoOperations {
         if (perfStop == (short) 2) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));}  //+8ms     
     	// 2. Compute e = H(M||R_n)
         md.reset();
-        md.update(Rn_plaintext_arr, plaintextOffset, Consts.SHARE_SIZE_CARRY_65); // Hash plaintext
-        md.doFinal(Rn_plaintext_arr, (short) (plaintextOffset+Consts.SHARE_SIZE_CARRY_65), Consts.SHARE_SIZE_CARRY_65, e_arr, (short) 0); //Hash R_n
-	e_Bn.from_byte_array(Consts.SHARE_SIZE_32, (short) 0, e_arr, (short) 0);
+        md.update(Rn_plaintext_arr, plaintextOffset, Consts.SHARE_DOUBLE_SIZE_CARRY); // Hash plaintext
+        md.doFinal(Rn_plaintext_arr, (short) (plaintextOffset+Consts.SHARE_DOUBLE_SIZE_CARRY), Consts.SHARE_DOUBLE_SIZE_CARRY, e_arr, (short) 0); //Hash R_n
+	e_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, e_arr, (short) 0);
 
 		
 
@@ -253,7 +252,7 @@ public class CryptoOperations {
         if (perfStop == (short) 3) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +15ms
         // s
         //s_Bn.zero();
-        s_Bn.from_byte_array(Consts.SHARE_SIZE_32, (short) 0, CryptoOperations.PRF(i, CryptoObjects.secret_seed), (short) 0); // s
+        s_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, CryptoOperations.PRF(i, CryptoObjects.secret_seed), (short) 0); // s
 
 
         if (perfStop == (short) 4) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +36ms
@@ -263,7 +262,7 @@ public class CryptoOperations {
 
         if (perfStop == (short) 5) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +18ms
         //xi_Bn.zero();
-        xi_Bn.from_byte_array(Consts.SHARE_SIZE_32, (short) 0, CryptoObjects.KeyPair.Getxi(), (short) 0);
+        xi_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, CryptoObjects.KeyPair.Getxi(), (short) 0);
         //xe_Bn.mult(xi_Bn, e_Bn);  // 330ms
         xe_Bn.mult_RSATrick(xi_Bn, e_Bn); // 90ms
         //test_multRSATrick(xi_Bn, e_Bn, null, xe_Bn);

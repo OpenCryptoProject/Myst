@@ -110,7 +110,7 @@ public class MPCTestClient {
             
             MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
             runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
-            runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
+            //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 1000;
             MPCProtocol_playground(runCfg);
         } catch (Exception e) {
@@ -426,7 +426,7 @@ public class MPCTestClient {
         if (ciphertext.length > 0) {
             System.out.printf(String.format("%s:", operationName));
             ECPoint c1 = ECPointDeSerialization(ciphertext, 0);
-            ECPoint c2 = ECPointDeSerialization(ciphertext, Consts.SHARE_SIZE_CARRY_65);
+            ECPoint c2 = ECPointDeSerialization(ciphertext, Consts.SHARE_DOUBLE_SIZE_CARRY);
 
             // Decrypt EC Point
             // Combine all decryption shares (x_ic)
@@ -765,8 +765,8 @@ public class MPCTestClient {
 		ResponseAPDU response = transmit(channel, cmd);
 
 		// Store Secret
-		Bignat tmp_BN = new Bignat(Consts.SHARE_SIZE_32, false);
-		tmp_BN.from_byte_array(Consts.SHARE_SIZE_32, (short) 0, (response.getData()),
+		Bignat tmp_BN = new Bignat(Consts.SHARE_BASIC_SIZE, false);
+		tmp_BN.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, (response.getData()),
 				(short) 0);
 		secret = Convenience.bi_from_bn(tmp_BN);
 
@@ -1146,10 +1146,10 @@ public class MPCTestClient {
 		// destPos -- This is the starting position in the destination data.
 		// length -- This is the number of array elements to be copied.
 
-		System.arraycopy(serialized_point, offset + 1, x_b, 0, Consts.SHARE_SIZE_32);
+		System.arraycopy(serialized_point, offset + 1, x_b, 0, Consts.SHARE_BASIC_SIZE);
 		BigInteger x = new BigInteger(bytesToHex(x_b), 16);
 		// System.out.println("X:" + toHex(x_b));
-		System.arraycopy(serialized_point, offset + (Consts.SHARE_SIZE_32 + 1), y_b, 0, Consts.SHARE_SIZE_32);
+		System.arraycopy(serialized_point, offset + (Consts.SHARE_BASIC_SIZE + 1), y_b, 0, Consts.SHARE_BASIC_SIZE);
 		BigInteger y = new BigInteger(bytesToHex(y_b), 16);
 		// System.out.println("Y:" + toHex(y_b));
 
@@ -1383,9 +1383,9 @@ public class MPCTestClient {
     }
     
     static byte[] testNonOptimizedModuloBignat(byte[] n, byte[] r, byte[] expectedResult) {
-        Bignat modulo_Bn = new Bignat((short) Consts.RND_SIZE, false);
+        Bignat modulo_Bn = new Bignat((short) Consts.SHARE_BASIC_SIZE, false);
         modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) (0), SecP256r1.r, (short) 0);
-        Bignat xe_Bn = new Bignat(Consts.SHARE_SIZE_64, false);
+        Bignat xe_Bn = new Bignat(Consts.SHARE_DOUBLE_SIZE, false);
         xe_Bn.from_byte_array((short) xe_Bn_testInput1.length, (short) (0), xe_Bn_testInput1, (short) 0);
 
         xe_Bn.remainder_divide(modulo_Bn, null);
@@ -1515,7 +1515,7 @@ public class MPCTestClient {
     static void testShiftRSAModuloTrick() {
         // n mod r == ((n<<k)^1 mod (r << k) ) >> k
         
-        Bignat modulo_Bn = new Bignat((short) Consts.RND_SIZE, false);
+        Bignat modulo_Bn = new Bignat((short) Consts.SHARE_BASIC_SIZE, false);
         modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) (0), SecP256r1.r, (short) 0);
 
     }

@@ -17,9 +17,9 @@ public class CryptoObjects {
 
     public static void allocate(ECConfig eccfg) {
         Sign_counter = new Bignat((short) 2, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
-        signature_counter = new Bignat(Consts.SHARE_SIZE_32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        signature_counter = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         
-        secret_seed = new byte[Consts.SHARE_SIZE_32];
+        secret_seed = new byte[Consts.SECRET_SEED_SIZE];
     }
     public static void Reset() {
         signature_counter.zero();
