@@ -28,7 +28,11 @@ public class Consts {
     public final static byte INS_KEYGEN_STORE_PUBKEY		= (byte) 0x13;
     public final static byte INS_KEYGEN_RETRIEVE_PUBKEY         = (byte) 0x14;
     public final static byte BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY	= (byte) 0x15;
-    public final static byte INS_KEYGEN_RETRIEVE_AGG_PUBKEY	= (byte) 0x16;
+    public final static byte INS_KEYGEN_RETRIEVE_AGG_PUBKEY     = (byte) 0x16;
+
+    public final static byte INS_KEYPROPAGATION_RETRIEVE_PRIVKEY_SHARES = (byte) 0x20;
+    public final static byte INS_KEYPROPAGATION_SET_PRIVKEY_SHARES      = (byte) 0x21;
+    
 
     // Encryption/Decryption Operations
     public final static byte INS_ENCRYPT			= (byte) 0x50;
@@ -48,8 +52,10 @@ public class Consts {
     public final static byte INS_SIGN_RETRIEVE_RI_N_HASH	= (byte) 0x76;
     public final static byte BUGBUG_INS_SIGN_RETRIEVE_KI	= (byte) 0x77; // BUGBUG: only for testing, remove 
     public final static byte BUGBUG_INS_SIGN_RETRIEVE_R		= (byte) 0x78; // BUGBUG: only for testing, remove 
-    public final static byte INS_SIGN				= (byte) 0x79;
-
+    public final static byte INS_SIGN                           = (byte) 0x79;
+    public final static byte INS_SIGN_GET_CURRENT_COUNTER       = (byte) 0x7a;
+    
+            
     //Low level Operations
     public final static byte INS_ADDPOINTS						= (byte) 0x80;
     

@@ -466,6 +466,18 @@ public class MPCTestClient {
         
     }
 
+    /**
+     * Subsequently, the host uses Algorithm 4.3 to compute the aggregate (Rj)
+     * of the group elements (Algorithm 4.3) received from the ICs for a
+     * particular j, and stores it for future use
+     * 
+     * @param playersList
+     * @param channel
+     * @param perfResultsList
+     * @param perfFile
+     * @throws NoSuchAlgorithmException
+     * @throws Exception 
+     */
     static void PerformSignCache(ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
 
         Bignat counter = new Bignat((short) 2, false);
@@ -488,7 +500,22 @@ public class MPCTestClient {
         System.out.println();
     }
     
-    
+    /**
+     * Host has collected all the shares for the same j, can use
+     * Algorithm 4.3 on all the σi, j to recover σj , obtaining the aggregate
+     * signature (σj , ϵj ). The recipient of (m, j), σ, ϵ can verify the
+     * validity of the signature by checking if ϵ = Hash(R| |Hash(m)| |j), where
+     * R = σ ·G +ϵ ·Y.
+     * 
+     * @param msgToSign
+     * @param i
+     * @param playersList
+     * @param channel
+     * @param perfResultsList
+     * @param perfFile
+     * @throws NoSuchAlgorithmException
+     * @throws Exception 
+     */
     static void PerformSignature(BigInteger msgToSign, int i, ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
             // Sign EC Point
             byte[] plaintext_sig = G.multiply(msgToSign).getEncoded(false);                     

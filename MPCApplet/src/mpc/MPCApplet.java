@@ -21,7 +21,7 @@ public class MPCApplet extends Applet {
     
     // TODO: Every card can participate in multiple quorums => QuorumContext[]. For preventive security reasons, number of QuorumContexts can be 1 => no overlapping of protocols
     // TODO: Every quorum can be executing different protocol (keygen, enc, dec, sign, rng) - allow only one running protocol at the time for given quorum
-    // TODO: Pro
+    // TODO: Enable/disable propagation of private key to other quorum
 
     public MPCApplet() {
         m_ecc = new ECConfig((short) 256);
@@ -116,6 +116,16 @@ public class MPCApplet extends Applet {
                     KeyGen_RetrieveAggregatedPublicKey(apdu);
                     break;
                     
+                //
+                // Key propagation to other quorums
+                //    
+                case Consts.INS_KEYPROPAGATION_RETRIEVE_PRIVKEY_SHARES:
+                    KeyMove_RetrievePrivKeyShares(apdu);
+                    break;
+                case Consts.INS_KEYPROPAGATION_SET_PRIVKEY_SHARES:
+                    KeyMove_SetPrivKeyShares(apdu);
+                    break;
+                    
                     
                 //    
                 // Encrypt and decrypt
@@ -131,17 +141,13 @@ public class MPCApplet extends Applet {
                 // Signing
                 //
                 case Consts.INS_SIGN_RETRIEVE_RI:
-                    dataLen = apdu.setIncomingAndReceive();
-                    len = CryptoOperations.Gen_R_i(Utils.shortToByteArray(p1), CryptoObjects.secret_seed, apdubuf);
-                    apdu.setOutgoingAndSend((short) 0, len);
+                    Sign_RetrieveRandomRi(apdu);
                     break;
-
                 case Consts.INS_SIGN:
-                    dataLen = apdu.setIncomingAndReceive();
-                    CryptoObjects.Sign_counter.from_byte_array((short) 2, (short) 0, Utils.shortToByteArray((short) (p1 & 0xff)), (short) 0);
-
-                    len = CryptoOperations.Sign(CryptoObjects.Sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0, p2);
-                    apdu.setOutgoingAndSend((short) 0, len); //Send signature share 
+                    Sign(apdu);
+                    break;
+                case Consts.INS_SIGN_GET_CURRENT_COUNTER:
+                    Sign_GetCurrentCounter(apdu);
                     break;
 
                 //    
@@ -150,6 +156,7 @@ public class MPCApplet extends Applet {
                 case Consts.INS_GENERATE_RANDOM:
                     GenerateRandomData(apdu);
                     break;
+                    
                     
                     
                 /*                    
@@ -255,7 +262,7 @@ public class MPCApplet extends Applet {
 
         CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);
         //CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
-        CryptoOperations.randomData.generateData(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE);
+        CryptoOperations.randomData.generateData(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
         if (DKG.IS_BACKDOORED_EXAMPLE) {
             Util.arrayFillNonAtomic(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
         }
@@ -470,6 +477,44 @@ public class MPCApplet extends Applet {
     }    
     
     /**
+     * Each member qi of Q1 then splits its secret xi in |Q2 | shares and
+     * distributes them to the individual members of Q2. To do that qi follows
+     * the secret sharing method shown in Algorithm 4.8. However, any t -of-t
+     * secret sharing schemes proposed in the literature would do.
+     * @param apdu 
+     */
+    void KeyMove_RetrievePrivKeyShares(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();
+
+        // TODO: Check state
+        // TODO: split y into shares for other quorum
+        // TODO: Switch into next state
+        apdu.setOutgoingAndSend((short) 0, len);
+    }    
+    /**
+     * Once each member of Q2 receives |Q1 | shares, which they then combine to
+     * retrieve their share of the secret corresponding to y. Each member of Q2
+     * can retrieve its share by summing the incoming shares, modulo p (the
+     * prime provided in the domain parameters T ). An additional benefit of
+     * such a scheme is that Q1 and Q2 may have different sizes. It should be
+     * also noted that a naive approach of having each member of q1 send their
+     * share of x to a member of q2 is insecure, as malicious members from q1
+     * and q2 can then collude to reconstruct the public key.
+     * @param apdu 
+     */
+    void KeyMove_SetPrivKeyShares(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();
+
+        // TODO: Check state
+        // TODO: Combine all shares to restore secret key y
+        // TODO: Switch into next state
+        apdu.setOutgoingAndSend((short) 0, len);
+    }
+
+    
+    /**
      * For encryption, we use the Elliptic Curve ElGamal scheme 
      * (Algorithm 4.4). This operation does not use the secret key, and can be
      * performed directly on the host, or remotely by any party holding the
@@ -493,6 +538,64 @@ public class MPCApplet extends Applet {
         dataLen = CryptoOperations.DecryptShare(apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
+    
+    /**
+     * Host queries the ICs for random group elements Ri j , where i is the id
+     * of the IC and j an increasing request counter. Once such a request is
+     * received, the IC verifies that the host is authorized to submit such a
+     * request and then applies the keyed pseudorandom function on the index j
+     * to compute ri, j = PRFs (j). The IC then uses ri, j to generate a
+     * group element (EC Point) Ri j = ri, j · G, which is then returned to
+     * the host.
+     */
+    void Sign_RetrieveRandomRi(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short dataLen = apdu.setIncomingAndReceive();
+        
+        // TODO: Check for strictly increasing request counter
+        
+        dataLen = CryptoOperations.Gen_R_i(Utils.shortToByteArray(apdubuf[ISO7816.OFFSET_P1]), CryptoObjects.secret_seed, apdubuf);
+        apdu.setOutgoingAndSend((short) 0, dataLen);
+    }  
+    
+    /** 
+     * The signing phase starts with the host sending a Sign request
+     * to all ICs . Such a request includes the hash of the plaintext
+     * Hash(m), the index of the round j, and the random group element Rj
+     * corresponding to the round. Each IC then first verifies that the host has
+     * the authorization to submit queries ( and that the specific j has not
+     * been already used . The latter check on j is to prevent attacks that
+     * aim to either leak the private key or to allow the adversary to craft new
+     * signatures from existing ones. If these checks are successful, the IC
+     * executes Algorithm 4.7 and generates its signature share. The
+     * signature share (σi, j , ϵj ) is then sent to the host.
+     * @param apdu 
+     */
+    void Sign(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short dataLen = apdu.setIncomingAndReceive();
+
+        // TODO: Check authorization to ask for signs 
+        // TODO: Check for strictly increasing request counter
+        
+        CryptoObjects.Sign_counter.from_byte_array((short) 2, (short) 0, Utils.shortToByteArray((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff)), (short) 0);
+
+        dataLen = CryptoOperations.Sign(CryptoObjects.Sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0, apdubuf[ISO7816.OFFSET_P2]);
+        apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
+    }
+    
+    /** 
+     * Returns current signature counter expected for next signature round
+     * @param apdu 
+     */
+    void Sign_GetCurrentCounter(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short dataLen = apdu.setIncomingAndReceive();
+
+        dataLen = CryptoObjects.signature_counter.copy_to_buffer(apdubuf, (short) 0);
+        apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
+    }    
+    
     
     /**
      * The remote host submits a request for randomness to all actors
