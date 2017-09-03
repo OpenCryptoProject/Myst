@@ -431,7 +431,7 @@ public class MPCTestClient {
             ECPoint c2 = ECPointDeSerialization(ciphertext, Consts.SHARE_DOUBLE_SIZE_CARRY);
 
             // Decrypt EC Point
-            // Combine all decryption shares (x_ic)
+            // Combine all decryption shares (x_ic) (except for card which is added below) 
             ECPoint xc1_EC = curve.getInfinity();
             for (SimulatedPlayer player : players) {
                 xc1_EC = xc1_EC.add(c1.multiply(player.priv_key_BI).negate());
@@ -448,7 +448,7 @@ public class MPCTestClient {
             writePerfLog("* Combined Decrypt time", combinedTimeDecrypt, perfResults, perfFile);
 
             System.out.printf(String.format("%s:", operationName));
-            xc1_EC = xc1_EC.add(ECPointDeSerialization(xc1_share, 0).negate());
+            xc1_EC = xc1_EC.add(ECPointDeSerialization(xc1_share, 0).negate()); // combine final share from card 
             ECPoint plaintext_EC = c2.add(xc1_EC);
 
             System.out.format(format, "Decryption successful?:",
@@ -763,7 +763,7 @@ public class MPCTestClient {
 	private static boolean RetrievePrivKey_DebugOnly(CardChannel channel)
 			throws Exception {
 		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-				                    Consts.INS_KEYGEN_RETRIEVE_PRIVKEY_BUGBUG, 0x0, 0x0);
+				                    Consts.BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY, 0x0, 0x0);
 		ResponseAPDU response = transmit(channel, cmd);
 
 		// Store Secret

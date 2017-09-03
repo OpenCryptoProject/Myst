@@ -27,12 +27,15 @@ public class Consts {
     public final static byte INS_KEYGEN_STORE_COMMITMENT	= (byte) 0x12;
     public final static byte INS_KEYGEN_STORE_PUBKEY		= (byte) 0x13;
     public final static byte INS_KEYGEN_RETRIEVE_PUBKEY         = (byte) 0x14;
-    public final static byte INS_KEYGEN_RETRIEVE_PRIVKEY_BUGBUG	= (byte) 0x15;
+    public final static byte BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY	= (byte) 0x15;
     public final static byte INS_KEYGEN_RETRIEVE_AGG_PUBKEY	= (byte) 0x16;
 
     // Encryption/Decryption Operations
     public final static byte INS_ENCRYPT			= (byte) 0x50;
     public final static byte INS_DECRYPT			= (byte) 0x51;
+    
+    
+    public final static byte INS_GENERATE_RANDOM                = (byte) 0x55;
 
     // Signing Operations
     // 0x60 to 0x6F and 0x90 to 0x9F are not allowed according to ISO 7816-3 and -4

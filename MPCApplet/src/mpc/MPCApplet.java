@@ -18,6 +18,10 @@ public class MPCApplet extends Applet {
 
     ECConfig m_ecc;
     ECCurve m_curve;
+    
+    // TODO: Every card can participate in multiple quorums => QuorumContext[]. For preventive security reasons, number of QuorumContexts can be 1 => no overlapping of protocols
+    // TODO: Every quorum can be executing different protocol (keygen, enc, dec, sign, rng) - allow only one running protocol at the time for given quorum
+    // TODO: Pro
 
     public MPCApplet() {
         m_ecc = new ECConfig((short) 256);
@@ -113,21 +117,14 @@ public class MPCApplet extends Applet {
                     break;
                     
                     
-                    
                 //    
                 // Encrypt and decrypt
                 //
                 case Consts.INS_ENCRYPT:
-                    dataLen = apdu.setIncomingAndReceive();
-                    len = CryptoOperations.Encrypt(apdubuf, ISO7816.OFFSET_CDATA, apdubuf, p1);
-                    apdu.setOutgoingAndSend((short) 0, len);
+                    EncryptData(apdu);
                     break;
-
-                // Decrypt
                 case Consts.INS_DECRYPT:
-                    dataLen = apdu.setIncomingAndReceive();
-                    len = CryptoOperations.DecryptShare(apdubuf, ISO7816.OFFSET_CDATA, apdubuf, p1);
-                    apdu.setOutgoingAndSend((short) 0, len);
+                    DecryptData(apdu);
                     break;
 
                 //    
@@ -148,9 +145,17 @@ public class MPCApplet extends Applet {
                     break;
 
                 //    
+                // Random number generation
+                //
+                case Consts.INS_GENERATE_RANDOM:
+                    GenerateRandomData(apdu);
+                    break;
+                    
+                    
+                /*                    
+                //    
                 // Signing - older protocol with explicit hash
                 //
-/*                    
                  case Consts.INS_SIGN_INIT:
                     CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
                     //CryptoObjects.EphimeralKey_next.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS); //Preloading
@@ -213,7 +218,7 @@ public class MPCApplet extends Applet {
                     len = CryptoOperations.addPoint(apdubuf, ISO7816.OFFSET_CDATA, dataLen, apdubuf, (short) 0, p1);
                     apdu.setOutgoingAndSend((short) 0, len);
                     break;
-                case Consts.INS_KEYGEN_RETRIEVE_PRIVKEY_BUGBUG:
+                case Consts.BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY:
                     dataLen = apdu.setIncomingAndReceive();
                     len = CryptoObjects.KeyPair.Getxi(apdubuf, (short) 0);
                     apdu.setOutgoingAndSend((short) 0, len);
@@ -460,6 +465,53 @@ public class MPCApplet extends Applet {
         
         // TODO: sign output data (if not signed later by host)
         // TODO: Switch into next state
+
+        apdu.setOutgoingAndSend((short) 0, len);
+    }    
+    
+    /**
+     * For encryption, we use the Elliptic Curve ElGamal scheme 
+     * (Algorithm 4.4). This operation does not use the secret key, and can be
+     * performed directly on the host, or remotely by any party holding the
+     * public key, hence there is no need to perform it in a distributed manner.
+     * @param apdu 
+     */
+    void EncryptData(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short dataLen = apdu.setIncomingAndReceive();
+        dataLen = CryptoOperations.Encrypt(apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
+        apdu.setOutgoingAndSend((short) 0, dataLen);
+    }
+    
+    /**
+     * All KeyGen_xxx executed before
+     * @param apdu 
+     */
+    void DecryptData(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short dataLen = apdu.setIncomingAndReceive();
+        dataLen = CryptoOperations.DecryptShare(apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
+        apdu.setOutgoingAndSend((short) 0, dataLen);
+    }
+    
+    /**
+     * The remote host submits a request for randomness to all actors
+     * participating in the quorum. Subsequently, each actor independently
+     * generates a random share bi , encrypts it with the public key of the
+     * host, and signs the ciphertext with its private key. Once the host
+     * receives all the shares, he combines them to retrieve the b and then uses
+     * an one way function (e.g., SHA3-512) to convert it to a fixed length
+     * string.
+     */
+    void GenerateRandomData(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();
+
+        // TODO: Check state
+        // TODO: Verify signature on request
+        // TODO: Generate share
+        // TODO: Encrypt share with host public key
+        // TODO: Sign output share
 
         apdu.setOutgoingAndSend((short) 0, len);
     }    
