@@ -144,7 +144,7 @@ public class CryptoOperations {
         p_Bn = new Bignat((short) 32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
     }
     
-    public static short Encrypt(byte[] plaintext_arr, short plaintext_arr_offset, byte[] outArray, short perfStop) {
+    public static short Encrypt(QuorumContext quorumCtx, byte[] plaintext_arr, short plaintext_arr_offset, byte[] outArray, short perfStop) {
         short outOffset = (short) 0;
 
         if (perfStop == (short) 1) {ISOException.throwIt((short) (Consts.PERF_ENCRYPT + perfStop));}
@@ -167,11 +167,11 @@ public class CryptoOperations {
         //ECPointBase.ScalarMultiplication(CryptoObjects.KeyPair.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
         if (ECPointBase.ECMultiplHelper != null) { 
             // Use prepared engine - cards with native support for EC
-            c2_EC.ScalarMultiplication(CryptoObjects.KeyPair.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
+            c2_EC.ScalarMultiplication(quorumCtx.KeyPair.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
         }
         else {
             // Use this with JCMathLib
-            c2_EC.ScalarMultiplication(CryptoObjects.KeyPair.GetY(), y_Bn, c2_EC); // y(xG)
+            c2_EC.ScalarMultiplication(quorumCtx.KeyPair.GetY(), y_Bn, c2_EC); // y(xG)
         }
         
         if (perfStop == (short) 4) {ISOException.throwIt((short) (Consts.PERF_ENCRYPT + perfStop));}
@@ -197,7 +197,7 @@ public class CryptoOperations {
     }
 
     // Share is -x_ic1
-    public static short DecryptShare(byte[] c1_c2_arr, short c1_c2_arr_offset, byte[] outputArray, short perfStop) {
+    public static short DecryptShare(QuorumContext quorumCtx, byte[] c1_c2_arr, short c1_c2_arr_offset, byte[] outputArray, short perfStop) {
 
         if (perfStop == (short) 1) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}   
         if (perfStop == (short) 2) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}            
@@ -213,7 +213,7 @@ public class CryptoOperations {
             len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, ECPointBase.ECMultiplHelperDecrypt, outputArray); // -xyG
         } else {
             // Use this with JCMathLib
-            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, CryptoObjects.KeyPair.Getxi(), outputArray); // -xyG
+            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, quorumCtx.KeyPair.Getxi(), outputArray); // -xyG
         }        
 
         if (perfStop == (short) 3) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}
@@ -229,12 +229,12 @@ public class CryptoOperations {
     }
     
     
-    public static short Sign(Bignat i, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset, short perfStop) {
+    public static short Sign(QuorumContext quorumCtx, Bignat i, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset, short perfStop) {
         
         if (perfStop == (short) 1) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} //153ms
         // 1. Check counter
         if (!MPCApplet.bIsSimulator) {
-            if (CryptoObjects.signature_counter.lesser(i)==false) {
+            if (quorumCtx.signature_counter.lesser(i)==false) {
                 ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
             }
         }
@@ -252,7 +252,7 @@ public class CryptoOperations {
         if (perfStop == (short) 3) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +15ms
         // s
         //s_Bn.zero();
-        s_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, CryptoOperations.PRF(i, CryptoObjects.secret_seed), (short) 0); // s
+        s_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, CryptoOperations.PRF(i, quorumCtx.secret_seed), (short) 0); // s
 
 
         if (perfStop == (short) 4) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +36ms
@@ -262,7 +262,7 @@ public class CryptoOperations {
 
         if (perfStop == (short) 5) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +18ms
         //xi_Bn.zero();
-        xi_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, CryptoObjects.KeyPair.Getxi(), (short) 0);
+        xi_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, quorumCtx.KeyPair.Getxi(), (short) 0);
         //xe_Bn.mult(xi_Bn, e_Bn);  // 330ms
         xe_Bn.mult_RSATrick(xi_Bn, e_Bn); // 90ms
         //test_multRSATrick(xi_Bn, e_Bn, null, xe_Bn);
@@ -365,7 +365,7 @@ public class CryptoOperations {
         
 
         //if (perfStop == (short) 11) {ISOException.throwIt((short) (PERF_SIGN + perfStop));}
-	CryptoObjects.signature_counter.copy(i);
+	quorumCtx.signature_counter.copy(i);
 		
         // Return result
         short outOffset = outputBaseOffset;

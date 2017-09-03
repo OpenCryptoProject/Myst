@@ -25,6 +25,9 @@ public class MPCApplet extends Applet {
     // TODO: Generate unique card key for signatures
     // TODO: Make unified structure of input data Sign(QuorumContextIndex | command apdu)_CardKey
 
+    Bignat Sign_counter = null; // TODO: move into shared temp values
+    QuorumContext[] m_quorums = null;
+
     public MPCApplet() {
         m_ecc = new ECConfig((short) 256);
         m_ecc.bnh.bIsSimulator = bIsSimulator;
@@ -35,9 +38,14 @@ public class MPCApplet extends Applet {
         CryptoOperations.allocate(m_ecc);
         Parameters.allocate();
         Utils.allocate();
-        CryptoObjects.allocate(m_ecc);
+        
+        m_quorums = new QuorumContext[Consts.MAX_QUORUMS];
+        for (short i = 0; i < (short) m_quorums.length; i++) {
+            m_quorums[i] = new QuorumContext(m_ecc, m_curve);
+        }
+        
+        Sign_counter = new Bignat((short) 2, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, m_ecc.bnh);
 
-        CryptoObjects.KeyPair = new DKG(m_curve);
         
 
         /*// Signing - older protocol with explicit hash
@@ -253,7 +261,7 @@ public class MPCApplet extends Applet {
                     break;
                 case Consts.BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY:
                     dataLen = apdu.setIncomingAndReceive();
-                    len = CryptoObjects.KeyPair.Getxi(apdubuf, (short) 0);
+                    len = m_quorums[0].KeyPair.Getxi(apdubuf, (short) 0);
                     apdu.setOutgoingAndSend((short) 0, len);
                     break;
 
@@ -287,15 +295,17 @@ public class MPCApplet extends Applet {
         short len = apdu.setIncomingAndReceive();
         
         // TODO: check authorization
+        
+        // TODO: extract quorum index
         Parameters.NUM_PLAYERS = (short) (apdubuf[ISO7816.OFFSET_P1] & 0xff);
         Parameters.CARD_INDEX_THIS = (short) (apdubuf[ISO7816.OFFSET_P2] & 0xff);
 
         // removed, requires explicit keygen operation CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);
         //CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
         
-        CryptoOperations.randomData.generateData(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
+        CryptoOperations.randomData.generateData(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
         if (DKG.IS_BACKDOORED_EXAMPLE) {
-            Util.arrayFillNonAtomic(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
+            Util.arrayFillNonAtomic(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
         }
         Parameters.SETUP = true; // Ok, done
         
@@ -319,7 +329,7 @@ public class MPCApplet extends Applet {
     void Quorum_Reset(APDU apdu) {
         // TODO: check authorization
         Parameters.Reset();
-        CryptoObjects.Reset();
+        m_quorums[0].Reset();
         // Restore proper value of modulo_Bn (was erased during the card's reset)
         CryptoOperations.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
         CryptoOperations.aBn.set_from_byte_array((short) (CryptoOperations.aBn.length() - (short) CryptoOperations.r_for_BigInteger.length), CryptoOperations.r_for_BigInteger, (short) 0, (short) CryptoOperations.r_for_BigInteger.length);
@@ -368,7 +378,7 @@ public class MPCApplet extends Applet {
         offset++;
         Util.setShort(buffer, offset, (short) 2);
         offset += 2;
-        Util.setShort(buffer, offset, CryptoObjects.KeyPair.getState());
+        Util.setShort(buffer, offset, m_quorums[0].KeyPair.getState()); // TODO: read states from all quorums
         offset += 2;
 
         buffer[offset] = Consts.TLV_TYPE_EPHIMERAL_STATE;
@@ -397,9 +407,9 @@ public class MPCApplet extends Applet {
         offset += 2;
         Util.setShort(buffer, offset, Consts.MAX_N_PLAYERS);
         offset += 2;
-        buffer[offset] = CryptoObjects.KeyPair.PLAYERS_IN_RAM ? (byte) 1 : (byte) 0;
+        buffer[offset] = m_quorums[0].KeyPair.PLAYERS_IN_RAM ? (byte) 1 : (byte) 0;
         offset++;
-        buffer[offset] = CryptoObjects.KeyPair.COMPUTE_Y_ONTHEFLY ? (byte) 1 : (byte) 0;
+        buffer[offset] = m_quorums[0].KeyPair.COMPUTE_Y_ONTHEFLY ? (byte) 1 : (byte) 0;
         offset++;
 
         // Git commit tag
@@ -442,7 +452,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
         
         // Generate new triplet
-        CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);        
+        m_quorums[0].KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);        
     }
     
     /**
@@ -457,7 +467,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
 
         // Obtain commitment for this card
-        len = CryptoObjects.KeyPair.GetHash(apdubuf, (short) 0);
+        len = m_quorums[0].KeyPair.GetHash(apdubuf, (short) 0);
         // TODO: sign the commitment (if not signed later by host)
         
         // TODO: Switch into next state
@@ -480,7 +490,7 @@ public class MPCApplet extends Applet {
         // TODO: verify signature on commitment
 
         // Store provided commitment
-        CryptoObjects.KeyPair.SetHash(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
+        m_quorums[0].KeyPair.SetHash(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
         
         // TODO: check for termination of store commitment phase 
     }
@@ -501,7 +511,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
         
         // Obtain public key
-        len = CryptoObjects.KeyPair.GetYi(apdubuf, (short) 0);
+        len = m_quorums[0].KeyPair.GetYi(apdubuf, (short) 0);
         // TODO: sign the commitment (if not signed later by host)
         // TODO: Switch into next state
 
@@ -521,7 +531,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
         // TODO: verify signature on public key
         // Store provided public key
-        CryptoObjects.KeyPair.SetYs(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
+        m_quorums[0].KeyPair.SetYs(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
         
         // TODO: if commitment check fails, terminate protocol and reset to intial state (and return error)
 
@@ -543,7 +553,7 @@ public class MPCApplet extends Applet {
 
         // TODO: Check state
         
-        len = CryptoObjects.KeyPair.GetY().getW(apdubuf, (short) 0);
+        len = m_quorums[0].KeyPair.GetY().getW(apdubuf, (short) 0);
         
         // TODO: sign output data (if not signed later by host)
         // TODO: Switch into next state
@@ -599,7 +609,7 @@ public class MPCApplet extends Applet {
     void EncryptData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
-        dataLen = CryptoOperations.Encrypt(apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
+        dataLen = CryptoOperations.Encrypt(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
     
@@ -610,7 +620,7 @@ public class MPCApplet extends Applet {
     void DecryptData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
-        dataLen = CryptoOperations.DecryptShare(apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
+        dataLen = CryptoOperations.DecryptShare(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
     
@@ -629,7 +639,7 @@ public class MPCApplet extends Applet {
         
         // TODO: Check for strictly increasing request counter
         
-        dataLen = CryptoOperations.Gen_R_i(Utils.shortToByteArray(apdubuf[ISO7816.OFFSET_P1]), CryptoObjects.secret_seed, apdubuf);
+        dataLen = CryptoOperations.Gen_R_i(Utils.shortToByteArray(apdubuf[ISO7816.OFFSET_P1]), m_quorums[0].secret_seed, apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }  
     
@@ -653,9 +663,9 @@ public class MPCApplet extends Applet {
         // TODO: Check authorization to ask for signs 
         // TODO: Check for strictly increasing request counter
         
-        CryptoObjects.Sign_counter.from_byte_array((short) 2, (short) 0, Utils.shortToByteArray((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff)), (short) 0);
+        Sign_counter.from_byte_array((short) 2, (short) 0, Utils.shortToByteArray((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff)), (short) 0);
 
-        dataLen = CryptoOperations.Sign(CryptoObjects.Sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0, apdubuf[ISO7816.OFFSET_P2]);
+        dataLen = CryptoOperations.Sign(m_quorums[0], Sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0, apdubuf[ISO7816.OFFSET_P2]);
         apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
     }
     
@@ -667,7 +677,7 @@ public class MPCApplet extends Applet {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
 
-        dataLen = CryptoObjects.signature_counter.copy_to_buffer(apdubuf, (short) 0);
+        dataLen = m_quorums[0].signature_counter.copy_to_buffer(apdubuf, (short) 0);
         apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
     }    
     

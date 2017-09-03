@@ -105,4 +105,8 @@ public class Consts {
     public static final short SHARE_DOUBLE_SIZE = (short) (2 * SHARE_BASIC_SIZE);           // intermediate result of multiplication operation with shares (double bit length)
     public static final short SHARE_DOUBLE_SIZE_CARRY = (short) (SHARE_DOUBLE_SIZE + 1);    // double intermediate result + 1 byte carry  
     public static final short SECRET_SEED_SIZE = BASIC_ECC_LENGTH;
+    
+    
+    public static final short MAX_QUORUMS = 1; // Maximum number of separate quorums this card can participate in
+    
 }
