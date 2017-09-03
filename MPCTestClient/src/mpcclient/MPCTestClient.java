@@ -662,7 +662,7 @@ public class MPCTestClient {
         }        
         
         private static boolean GetCardInfo(CardChannel channel) throws Exception {
-            CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_STATUS, 0, 0);
+            CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_PERSONALIZE_CARDINFO, 0, 0);
             ResponseAPDU response = transmit(channel, cmd);
 
             // Parse response 
@@ -743,7 +743,7 @@ public class MPCTestClient {
         
 	/* Instructions */
 	private static boolean Setup(CardChannel channel, short numPlayers, short thisPlayerID) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SETUP, numPlayers,
+		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_SETUP_NEW, numPlayers,
 				                    thisPlayerID);
 		ResponseAPDU response = transmit(channel, cmd);
 
@@ -751,7 +751,7 @@ public class MPCTestClient {
 	}
 
 	private static boolean Reset(CardChannel channel) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_RESET, 0x00, 0x00);
+		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_RESET, 0x00, 0x00);
 		ResponseAPDU response = transmit(channel, cmd);
 		return checkSW(response);
 	}

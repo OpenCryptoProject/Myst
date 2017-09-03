@@ -22,6 +22,8 @@ public class MPCApplet extends Applet {
     // TODO: Every card can participate in multiple quorums => QuorumContext[]. For preventive security reasons, number of QuorumContexts can be 1 => no overlapping of protocols
     // TODO: Every quorum can be executing different protocol (keygen, enc, dec, sign, rng) - allow only one running protocol at the time for given quorum
     // TODO: Enable/disable propagation of private key to other quorum
+    // TODO: Generate unique card key for signatures
+    // TODO: Make unified structure of input data Sign(QuorumContextIndex | command apdu)_CardKey
 
     public MPCApplet() {
         m_ecc = new ECConfig((short) 256);
@@ -59,7 +61,7 @@ public class MPCApplet extends Applet {
 
     public boolean select() {
         updateAfterReset();
-        Reset();
+        Quorum_ResetAll();
         return true;
     }
 
@@ -82,17 +84,36 @@ public class MPCApplet extends Applet {
 
             switch (buf[ISO7816.OFFSET_INS]) {
                 //
-                // Card Management
+                // Card bootstrapping
                 //
-                case Consts.INS_STATUS:
-                    getCardInfo(apdu);
+                case Consts.INS_PERSONALIZE_INITIALIZE:
+                    // Generates initial secrets for this card and export public key 
+                    Personalize_Init(apdu);
                     break;
-                case Consts.INS_SETUP:
-                    Setup(p1, p2);
+                case Consts.INS_PERSONALIZE_SET_USER_AUTH_PUBKEY:
+                    // Set public key later used to authorize requests
+                    Personalize_SetUserAuthPubKey(apdu);
                     break;
-                case Consts.INS_RESET:
-                    Reset();
+                case Consts.INS_PERSONALIZE_CARDINFO:
+                    Personalize_GetCardInfo(apdu);
                     break;
+                    
+                //
+                // Quorum Management
+                //
+                case Consts.INS_QUORUM_SETUP_NEW:
+                    // Includes this card into new quorum (QuorumContext[i])
+                    Quorum_SetupNew(apdu);
+                    break;
+                case Consts.INS_QUORUM_REMOVE:
+                    // Removes this card from existing quorum and cleanup quorum context (QuorumContext[i])
+                    Quorum_Remove(apdu);
+                    break;
+                case Consts.INS_QUORUM_RESET:
+                    // Reset all sensitive values in specified quorum (but keeps quorum settings) 
+                    Quorum_Reset(apdu);
+                    break;
+                    
 
                 //    
                 // Key Generation
@@ -156,6 +177,11 @@ public class MPCApplet extends Applet {
                 case Consts.INS_GENERATE_RANDOM:
                     GenerateRandomData(apdu);
                     break;
+                    
+                    
+
+                    
+                    
                     
                     
                     
@@ -256,28 +282,77 @@ public class MPCApplet extends Applet {
     // ///////////////////////////////////////////////////////////////////
     // // Card Management functionality ////
     // ///////////////////////////////////////////////////////////////////
-    void Setup(short p1, short p2) {
-        Parameters.NUM_PLAYERS = p1;
-        Parameters.CARD_INDEX_THIS = p2;
+    void Quorum_SetupNew(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();
+        
+        // TODO: check authorization
+        Parameters.NUM_PLAYERS = (short) (apdubuf[ISO7816.OFFSET_P1] & 0xff);
+        Parameters.CARD_INDEX_THIS = (short) (apdubuf[ISO7816.OFFSET_P2] & 0xff);
 
-        CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);
+        // removed, requires explicit keygen operation CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);
         //CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
+        
         CryptoOperations.randomData.generateData(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
         if (DKG.IS_BACKDOORED_EXAMPLE) {
             Util.arrayFillNonAtomic(CryptoObjects.secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
         }
         Parameters.SETUP = true; // Ok, done
+        
+        // TODO: set state
     }
+    
+    void Quorum_Remove(APDU apdu) {
+        byte[] apdubuf = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();
 
-    void Reset() {
+        // TODO: check authorization
+        
+        // TODO: clear all forum sensitive values
+        Quorum_Reset(null); // temporary call to legacy reset function
+
+        // TODO: mark context free for next Quorum_SetupNew() call
+        // TODO: set state
+    }    
+    
+
+    void Quorum_Reset(APDU apdu) {
+        // TODO: check authorization
         Parameters.Reset();
         CryptoObjects.Reset();
         // Restore proper value of modulo_Bn (was erased during the card's reset)
         CryptoOperations.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
         CryptoOperations.aBn.set_from_byte_array((short) (CryptoOperations.aBn.length() - (short) CryptoOperations.r_for_BigInteger.length), CryptoOperations.r_for_BigInteger, (short) 0, (short) CryptoOperations.r_for_BigInteger.length);
     }
+    void Quorum_ResetAll() {
+        // TODO: reset all quorums from QuorumContext[]
+        Quorum_Reset(null); // temporary call to legacy reset function
+    }
 
-    void getCardInfo(APDU apdu) {
+    void Personalize_Init(APDU apdu) {
+        byte[] buffer = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();
+
+        // TODO: check state
+        // TODO: check authorization
+        // TODO: generate card long-term signature key
+        // TODO: clear QuorumContext[] 
+        // TODO: change state
+        // TODO: export card public info
+    }
+    
+    void Personalize_SetUserAuthPubKey(APDU apdu) {
+        byte[] buffer = apdu.getBuffer();
+        short len = apdu.setIncomingAndReceive();
+
+        // TODO: check state
+        // TODO: set long-term authorization key for subsequent operations
+        // TODO: change state
+        // TODO: export card public info
+    }    
+        
+            
+    void Personalize_GetCardInfo(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
 
         short offset = 0;

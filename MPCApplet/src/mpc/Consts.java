@@ -13,12 +13,19 @@ public class Consts {
 
     // INStructions
     // Card Management
-    public final static byte INS_SETUP				= (byte) 0x01;
-    public final static byte INS_STATUS                         = (byte) 0x02;
-    public final static byte INS_RESET				= (byte) 0x03;
+
+    public final static byte INS_QUORUM_SETUP_NEW		= (byte) 0x01;
+    public final static byte INS_PERSONALIZE_CARDINFO           = (byte) 0x02;
+    public final static byte INS_QUORUM_RESET                   = (byte) 0x03;
     public final static byte INS_TESTRSAMULT                    = (byte) 0x04;
     public final static byte INS_SET_BACKDOORED_EXAMPLE         = (byte) 0x05;
     public final static byte INS_TESTECC                        = (byte) 0x06;
+    public final static byte INS_QUORUM_REMOVE                  = (byte) 0x07;
+    public final static byte INS_PERSONALIZE_INITIALIZE         = (byte) 0x08;
+    public final static byte INS_PERSONALIZE_SET_USER_AUTH_PUBKEY = (byte) 0x09;
+    
+    
+    
     
 
     // KeyGen Operations
