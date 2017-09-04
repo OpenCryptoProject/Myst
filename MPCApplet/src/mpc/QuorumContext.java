@@ -12,7 +12,7 @@ import javacard.security.KeyPair;
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class QuorumContext {
-    private CryptoOperations cryptoOps = null;
+    private MPCCryptoOperations cryptoOps = null;
 
     public short CARD_INDEX_THIS = 0;   // index of player realised by this card
     public short NUM_PLAYERS = 0;       // current number of players
@@ -50,7 +50,7 @@ public class QuorumContext {
     // Moved from DKG end
     
     
-    public QuorumContext(ECConfig eccfg, ECCurve curve, CryptoOperations cryptoOperations) {
+    public QuorumContext(ECConfig eccfg, ECCurve curve, MPCCryptoOperations cryptoOperations) {
         cryptoOps = cryptoOperations;
         signature_counter = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         secret_seed = new byte[Consts.SECRET_SEED_SIZE];

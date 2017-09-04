@@ -30,7 +30,7 @@ public class MPCApplet extends Applet {
     
     public byte[] cardIDLong = null; // unique card ID generated during applet install
     
-    CryptoOperations m_cryptoOps = null;
+    MPCCryptoOperations m_cryptoOps = null;
 
     public MPCApplet() {
         m_ecc = new ECConfig((short) 256);
@@ -39,7 +39,7 @@ public class MPCApplet extends Applet {
 
         ECPointBuilder.allocate(m_curve, m_ecc);
         ECPointBase.allocate(m_curve);
-        m_cryptoOps = new CryptoOperations(m_ecc);
+        m_cryptoOps = new MPCCryptoOperations(m_ecc);
         
         m_quorums = new QuorumContext[Consts.MAX_QUORUMS];
         for (short i = 0; i < (short) m_quorums.length; i++) {
@@ -334,7 +334,7 @@ public class MPCApplet extends Applet {
         m_quorums[0].Reset();
         // Restore proper value of modulo_Bn (was erased during the card's reset)
         m_cryptoOps.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-        m_cryptoOps.aBn.set_from_byte_array((short) (m_cryptoOps.aBn.length() - (short) CryptoOperations.r_for_BigInteger.length), CryptoOperations.r_for_BigInteger, (short) 0, (short) CryptoOperations.r_for_BigInteger.length);
+        m_cryptoOps.aBn.set_from_byte_array((short) (m_cryptoOps.aBn.length() - (short) MPCCryptoOperations.r_for_BigInteger.length), MPCCryptoOperations.r_for_BigInteger, (short) 0, (short) MPCCryptoOperations.r_for_BigInteger.length);
     }
     void Quorum_ResetAll() {
         // TODO: reset all quorums from QuorumContext[]

@@ -13,7 +13,7 @@ import javacard.security.RandomData;
  *
  * @author Vasilios Mavroudis and Petr Svenda
  */
-public class CryptoOperations {
+public class MPCCryptoOperations {
     RandomData randomData = null;
     MessageDigest md = null;
 
@@ -95,7 +95,7 @@ public class CryptoOperations {
         (byte) 0x32, (byte) 0xAD, (byte) 0x5E, (byte) 0x5D, (byte) 0xE4, (byte) 0x69, (byte) 0xC2, (byte) 0x7B, 
         (byte) 0xAB, (byte) 0x0D, (byte) 0xBA, (byte) 0xA1, (byte) 0x5A, (byte) 0x16, (byte) 0x83, (byte) 0xA1};
     
-    public CryptoOperations(ECConfig eccfg) {
+    public MPCCryptoOperations(ECConfig eccfg) {
         placeholder = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
         placeholder.initializeECPoint_SecP256r1();
 
