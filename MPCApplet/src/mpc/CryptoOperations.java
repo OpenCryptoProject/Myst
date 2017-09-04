@@ -172,11 +172,11 @@ public class CryptoOperations {
         //ECPointBase.ScalarMultiplication(CryptoObjects.KeyPair.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
         if (ECPointBase.ECMultiplHelper != null) { 
             // Use prepared engine - cards with native support for EC
-            c2_EC.ScalarMultiplication(quorumCtx.KeyPair.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
+            c2_EC.ScalarMultiplication(quorumCtx.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
         }
         else {
             // Use this with JCMathLib
-            c2_EC.ScalarMultiplication(quorumCtx.KeyPair.GetY(), y_Bn, c2_EC); // y(xG)
+            c2_EC.ScalarMultiplication(quorumCtx.GetY(), y_Bn, c2_EC); // y(xG)
         }
         
         if (perfStop == (short) 4) {ISOException.throwIt((short) (Consts.PERF_ENCRYPT + perfStop));}
@@ -218,7 +218,7 @@ public class CryptoOperations {
             len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, ECPointBase.ECMultiplHelperDecrypt, outputArray); // -xyG
         } else {
             // Use this with JCMathLib
-            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, quorumCtx.KeyPair.Getxi(), outputArray); // -xyG
+            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, quorumCtx.Getxi(), outputArray); // -xyG
         }        
 
         if (perfStop == (short) 3) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}
@@ -267,7 +267,7 @@ public class CryptoOperations {
 
         if (perfStop == (short) 5) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +18ms
         //xi_Bn.zero();
-        xi_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, quorumCtx.KeyPair.Getxi(), (short) 0);
+        xi_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, quorumCtx.Getxi(), (short) 0);
         //xe_Bn.mult(xi_Bn, e_Bn);  // 330ms
         xe_Bn.mult_RSATrick(xi_Bn, e_Bn); // 90ms
         //test_multRSATrick(xi_Bn, e_Bn, null, xe_Bn);

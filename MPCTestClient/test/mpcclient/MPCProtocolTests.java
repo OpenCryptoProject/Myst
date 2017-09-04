@@ -61,7 +61,7 @@ public class MPCProtocolTests {
     @Test
     void runMPCProtocol_maxNumPlayers_realCard() throws Exception {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
-        runCfg.numPlayers = Consts.MAX_N_PLAYERS;
+        runCfg.numPlayers = Consts.MAX_NUM_PLAYERS;
         // Execute once
         mpcclient.MPCTestClient.TestMPCProtocol_v20170520(runCfg);
     }

@@ -249,12 +249,12 @@ public class MPCApplet extends Applet {
                 case Consts.INS_SET_BACKDOORED_EXAMPLE:
                     // If p1 == 0x55, then set flag which will cause applet to behave as example backdoored one
                     if (p1 == (byte) 0x55) {
-                        DKG.IS_BACKDOORED_EXAMPLE = true;
+                        m_quorums[0].IS_BACKDOORED_EXAMPLE = true;
                         // Return the value of backdoored key
-                        Util.arrayCopyNonAtomic(DKG.privbytes_backdoored, (short) 0, apdubuf, (short) 0, (short) DKG.privbytes_backdoored.length);
-                        apdu.setOutgoingAndSend((short) 0, (short) DKG.privbytes_backdoored.length);
+                        Util.arrayCopyNonAtomic(m_quorums[0].privbytes_backdoored, (short) 0, apdubuf, (short) 0, (short) m_quorums[0].privbytes_backdoored.length);
+                        apdu.setOutgoingAndSend((short) 0, (short) m_quorums[0].privbytes_backdoored.length);
                     } else {
-                        DKG.IS_BACKDOORED_EXAMPLE = false;
+                        m_quorums[0].IS_BACKDOORED_EXAMPLE = false;
                     }
                     break;
                 case Consts.INS_ADDPOINTS:
@@ -264,7 +264,7 @@ public class MPCApplet extends Applet {
                     break;
                 case Consts.BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY:
                     dataLen = apdu.setIncomingAndReceive();
-                    len = m_quorums[0].KeyPair.Getxi(apdubuf, (short) 0);
+                    len = m_quorums[0].Getxi(apdubuf, (short) 0);
                     apdu.setOutgoingAndSend((short) 0, len);
                     break;
 
@@ -307,7 +307,7 @@ public class MPCApplet extends Applet {
         //CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
         
         CryptoOperations.randomData.generateData(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
-        if (DKG.IS_BACKDOORED_EXAMPLE) {
+        if (m_quorums[0].IS_BACKDOORED_EXAMPLE) {
             Util.arrayFillNonAtomic(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
         }
         m_quorums[0].SETUP = true; // Ok, done
@@ -380,7 +380,7 @@ public class MPCApplet extends Applet {
         offset++;
         Util.setShort(buffer, offset, (short) 2);
         offset += 2;
-        Util.setShort(buffer, offset, m_quorums[0].KeyPair.getState()); // TODO: read states from all quorums
+        Util.setShort(buffer, offset, m_quorums[0].getState()); // TODO: read states from all quorums
         offset += 2;
 
         buffer[offset] = Consts.TLV_TYPE_EPHIMERAL_STATE;
@@ -407,11 +407,11 @@ public class MPCApplet extends Applet {
         offset++;
         Util.setShort(buffer, offset, (short) 4);
         offset += 2;
-        Util.setShort(buffer, offset, Consts.MAX_N_PLAYERS);
+        Util.setShort(buffer, offset, Consts.MAX_NUM_PLAYERS);
         offset += 2;
-        buffer[offset] = m_quorums[0].KeyPair.PLAYERS_IN_RAM ? (byte) 1 : (byte) 0;
+        buffer[offset] = m_quorums[0].PLAYERS_IN_RAM ? (byte) 1 : (byte) 0;
         offset++;
-        buffer[offset] = m_quorums[0].KeyPair.COMPUTE_Y_ONTHEFLY ? (byte) 1 : (byte) 0;
+        buffer[offset] = m_quorums[0].COMPUTE_Y_ONTHEFLY ? (byte) 1 : (byte) 0;
         offset++;
 
         // Git commit tag
@@ -427,7 +427,7 @@ public class MPCApplet extends Applet {
         offset++;
         Util.setShort(buffer, offset, (short) 1);
         offset += 2;
-        buffer[offset] = DKG.IS_BACKDOORED_EXAMPLE ? (byte) 1 : (byte) 0;
+        buffer[offset] = m_quorums[0].IS_BACKDOORED_EXAMPLE ? (byte) 1 : (byte) 0;
         offset += 1;
 
         apdu.setOutgoingAndSend((short) 0, offset);
@@ -454,7 +454,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
         
         // Generate new triplet
-        m_quorums[0].KeyPair.Reset(m_quorums[0].NUM_PLAYERS, m_quorums[0].CARD_INDEX_THIS, true);        
+        m_quorums[0].Reset(m_quorums[0].NUM_PLAYERS, m_quorums[0].CARD_INDEX_THIS, true);        
     }
     
     /**
@@ -469,7 +469,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
 
         // Obtain commitment for this card
-        len = m_quorums[0].KeyPair.GetHash(apdubuf, (short) 0);
+        len = m_quorums[0].GetHash(apdubuf, (short) 0);
         // TODO: sign the commitment (if not signed later by host)
         
         // TODO: Switch into next state
@@ -492,7 +492,7 @@ public class MPCApplet extends Applet {
         // TODO: verify signature on commitment
 
         // Store provided commitment
-        m_quorums[0].KeyPair.SetHash(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
+        m_quorums[0].SetHash(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
         
         // TODO: check for termination of store commitment phase 
     }
@@ -513,7 +513,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
         
         // Obtain public key
-        len = m_quorums[0].KeyPair.GetYi(apdubuf, (short) 0);
+        len = m_quorums[0].GetYi(apdubuf, (short) 0);
         // TODO: sign the commitment (if not signed later by host)
         // TODO: Switch into next state
 
@@ -533,7 +533,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
         // TODO: verify signature on public key
         // Store provided public key
-        m_quorums[0].KeyPair.SetYs(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
+        m_quorums[0].SetYs(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
         
         // TODO: if commitment check fails, terminate protocol and reset to intial state (and return error)
 
@@ -555,7 +555,7 @@ public class MPCApplet extends Applet {
 
         // TODO: Check state
         
-        len = m_quorums[0].KeyPair.GetY().getW(apdubuf, (short) 0);
+        len = m_quorums[0].GetY().getW(apdubuf, (short) 0);
         
         // TODO: sign output data (if not signed later by host)
         // TODO: Switch into next state

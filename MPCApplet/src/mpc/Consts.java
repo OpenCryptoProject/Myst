@@ -88,7 +88,7 @@ public class Consts {
     public static final short PERF_SIGN                         = (short) 0x5550;
     
     // Global applet settings
-    public static final short MAX_N_PLAYERS                     = (short) 15;   // Maximum number of allowed players
+    public static final short MAX_NUM_PLAYERS                     = (short) 15;   // Maximum number of allowed players
 
     // TLV types
     public final static byte TLV_TYPE_CARDUNIQUEDID    = (byte) 0x40;
