@@ -10,6 +10,11 @@ public class QuorumContext {
     // Keys
     public DKG KeyPair;
 
+    public short NUM_PLAYERS = 0; 
+    public short CARD_INDEX_THIS = 0; 
+
+    public static boolean SETUP = false; // Have the scheme parameters been set?
+
     // Signing
     public Bignat signature_counter = null;
     public byte[] secret_seed = null; // = { (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00, (byte) 0x00};
@@ -20,6 +25,9 @@ public class QuorumContext {
         KeyPair = new DKG(curve);
     }
     public void Reset() {
+	NUM_PLAYERS = 0;
+        CARD_INDEX_THIS = 0;     
+        SETUP = false;
         signature_counter.zero();
         KeyPair.Invalidate(true);
     }

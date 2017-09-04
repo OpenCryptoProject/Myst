@@ -268,7 +268,7 @@ public class DKG {
 
     // State 2
     public byte[] Getxi() { // Used to sign and decrypt
-        if ((STATE >= 2)|| (Parameters.NUM_PLAYERS==1)) {
+        if ((STATE >= 2)|| (N_PLAYERS==1)) {
             return x_i_Bn;
         } else {
             ISOException.throwIt(Consts.SW_INCORRECTSTATE);
@@ -277,7 +277,7 @@ public class DKG {
     }
     
     public short Getxi(byte[] array, short offset) {
-        if ((STATE >= 2) || (Parameters.NUM_PLAYERS==1)) {
+        if ((STATE >= 2) || (N_PLAYERS==1)) {
             Util.arrayCopyNonAtomic(x_i_Bn, (short) 0, array, offset, (short) x_i_Bn.length);
             return (short) x_i_Bn.length;
         } else {
@@ -287,7 +287,7 @@ public class DKG {
 
     // State 2
     public ECPointBase GetY() {
-        if ((STATE >= 2) || (Parameters.NUM_PLAYERS==1)){
+        if ((STATE >= 2) || (N_PLAYERS==1)){
             if (COMPUTE_Y_ONTHEFLY) {
                 return Y_EC_onTheFly;
             }

@@ -27,6 +27,9 @@ public class MPCApplet extends Applet {
 
     Bignat Sign_counter = null; // TODO: move into shared temp values
     QuorumContext[] m_quorums = null;
+    
+    public static byte[] cardIDLong = null; // unique card ID generated during applet install
+    
 
     public MPCApplet() {
         m_ecc = new ECConfig((short) 256);
@@ -36,7 +39,6 @@ public class MPCApplet extends Applet {
         ECPointBuilder.allocate(m_curve, m_ecc);
         ECPointBase.allocate(m_curve);
         CryptoOperations.allocate(m_ecc);
-        Parameters.allocate();
         Utils.allocate();
         
         m_quorums = new QuorumContext[Consts.MAX_QUORUMS];
@@ -54,7 +56,8 @@ public class MPCApplet extends Applet {
         */
 
         // Random card unique ID
-        CryptoOperations.randomData.generateData(Parameters.cardIDLong, (short) 0, (short) Parameters.cardIDLong.length);
+        cardIDLong = new byte[Consts.CARD_ID_LONG_LENGTH];
+        CryptoOperations.randomData.generateData(cardIDLong, (short) 0, (short) cardIDLong.length);
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength) {
@@ -297,8 +300,8 @@ public class MPCApplet extends Applet {
         // TODO: check authorization
         
         // TODO: extract quorum index
-        Parameters.NUM_PLAYERS = (short) (apdubuf[ISO7816.OFFSET_P1] & 0xff);
-        Parameters.CARD_INDEX_THIS = (short) (apdubuf[ISO7816.OFFSET_P2] & 0xff);
+        m_quorums[0].NUM_PLAYERS = (short) (apdubuf[ISO7816.OFFSET_P1] & 0xff);
+        m_quorums[0].CARD_INDEX_THIS = (short) (apdubuf[ISO7816.OFFSET_P2] & 0xff);
 
         // removed, requires explicit keygen operation CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);
         //CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
@@ -307,7 +310,7 @@ public class MPCApplet extends Applet {
         if (DKG.IS_BACKDOORED_EXAMPLE) {
             Util.arrayFillNonAtomic(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
         }
-        Parameters.SETUP = true; // Ok, done
+        m_quorums[0].SETUP = true; // Ok, done
         
         // TODO: set state
     }
@@ -328,7 +331,6 @@ public class MPCApplet extends Applet {
 
     void Quorum_Reset(APDU apdu) {
         // TODO: check authorization
-        Parameters.Reset();
         m_quorums[0].Reset();
         // Restore proper value of modulo_Bn (was erased during the card's reset)
         CryptoOperations.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
@@ -369,10 +371,10 @@ public class MPCApplet extends Applet {
 
         buffer[offset] = Consts.TLV_TYPE_CARDUNIQUEDID;
         offset++;
-        Util.setShort(buffer, offset, (short) Parameters.cardIDLong.length);
+        Util.setShort(buffer, offset, (short) cardIDLong.length);
         offset += 2;
-        Util.arrayCopyNonAtomic(Parameters.cardIDLong, (short) 0, buffer, offset, (short) Parameters.cardIDLong.length);
-        offset += Parameters.cardIDLong.length;
+        Util.arrayCopyNonAtomic(cardIDLong, (short) 0, buffer, offset, (short) cardIDLong.length);
+        offset += cardIDLong.length;
 
         buffer[offset] = Consts.TLV_TYPE_KEYPAIR_STATE;
         offset++;
@@ -452,7 +454,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
         
         // Generate new triplet
-        m_quorums[0].KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true);        
+        m_quorums[0].KeyPair.Reset(m_quorums[0].NUM_PLAYERS, m_quorums[0].CARD_INDEX_THIS, true);        
     }
     
     /**
