@@ -76,6 +76,8 @@ public class Consts {
     public static final short SW_CANTALLOCATE_BIGNAT            = (short) 0x7005;
     public static final short SW_INVALIDPOINTTYPE               = (short) 0x7006;
     public static final short SW_NOTSUPPORTEDYET                = (short) 0x7007;
+    public static final short SW_INTERNALSTATEMISMATCH          = (short) 0x7008;
+    public static final short SW_INVALIDPLAYERINDEX             = (short) 0x7009;
     
     
     

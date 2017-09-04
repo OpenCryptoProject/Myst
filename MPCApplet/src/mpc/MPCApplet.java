@@ -452,7 +452,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
         
         // Generate new triplet
-        m_quorums[0].KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);        
+        m_quorums[0].KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true);        
     }
     
     /**

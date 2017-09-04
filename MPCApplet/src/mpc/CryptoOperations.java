@@ -14,7 +14,7 @@ import javacard.security.RandomData;
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class CryptoOperations {
-    static ECPointBase placeholder = null;
+    static ECPointBase placeholder = null; 
     static ECPointBase c2_EC = null;   
     static ECPointBase GenPoint = null;
     static ECPointBase plaintext_EC = null;
@@ -44,7 +44,6 @@ public class CryptoOperations {
     static Bignat five_Bn = null;
     static Bignat p_Bn = null;
     
-
     static final short SHIFT_BYTES_AAPROX = (short) 65;
     static short res2Len = (short) ((short) 97 - SHIFT_BYTES_AAPROX);
 
@@ -142,6 +141,12 @@ public class CryptoOperations {
         four_Bn = new Bignat((short) 32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         five_Bn = new Bignat((short) 32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         p_Bn = new Bignat((short) 32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        
+        if (md == null) {
+            //md = MessageDigest.getInstance(MessageDigest.ALG_SHA, false);
+            md = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, false);
+        }
+        
     }
     
     public static short Encrypt(QuorumContext quorumCtx, byte[] plaintext_arr, short plaintext_arr_offset, byte[] outArray, short perfStop) {
