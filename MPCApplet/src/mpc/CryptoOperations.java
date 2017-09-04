@@ -14,37 +14,37 @@ import javacard.security.RandomData;
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class CryptoOperations {
-    static ECPointBase placeholder = null; 
-    static ECPointBase c2_EC = null;   
-    static ECPointBase GenPoint = null;
-    static ECPointBase plaintext_EC = null;
-    static ECPointBase tmp_EC = null;
-    static byte[] y_Bn = null;
-    static RandomData randomData = null;
-    static byte[] encResult = null;
-    static byte[] e_arr = null;
-    static byte[] tmp_k_n = null;
-    static byte[] prf_result = null;
+    RandomData randomData = null;
+    MessageDigest md = null;
 
-    static MessageDigest md = null;
-    static Bignat modulo_Bn = null;
-    static Bignat e_Bn = null;
-    static Bignat s_Bn = null;
-    static Bignat xe_Bn = null;
-    static Bignat xi_Bn = null;
-    static Bignat aBn = null;
+    ECPointBase placeholder = null; 
+    ECPointBase c2_EC = null;   
+    ECPointBase GenPoint = null;
+    ECPointBase plaintext_EC = null;
+    ECPointBase tmp_EC = null;
+    byte[] y_Bn = null;
+    byte[] encResult = null;
+    byte[] e_arr = null;
+    byte[] tmp_k_n = null;
+    byte[] prf_result = null;
+
+    Bignat modulo_Bn = null;
+    Bignat e_Bn = null;
+    Bignat s_Bn = null;
+    Bignat xe_Bn = null;
+    Bignat xi_Bn = null;
+    Bignat aBn = null;
     
-    static Bignat resBn1 = null;
-    static Bignat resBn2 = null;
-    static Bignat resBn3 = null;
-    //static Bignat cit = null;
+    Bignat resBn1 = null;
+    Bignat resBn2 = null;
+    Bignat resBn3 = null;
     
     // AddPoint operations
-    static Bignat four_Bn = null;
-    static Bignat five_Bn = null;
-    static Bignat p_Bn = null;
+    Bignat four_Bn = null;
+    Bignat five_Bn = null;
+    Bignat p_Bn = null;
     
-    static final short SHIFT_BYTES_AAPROX = (short) 65;
+    static final short SHIFT_BYTES_AAPROX = Consts.SHARE_DOUBLE_SIZE_CARRY;
     static short res2Len = (short) ((short) 97 - SHIFT_BYTES_AAPROX);
 
     //static byte[] citConst = {(byte) 0x01, (byte) 0x00, (byte) 0x01};
@@ -92,7 +92,7 @@ public class CryptoOperations {
         (byte) 0x32, (byte) 0xAD, (byte) 0x5E, (byte) 0x5D, (byte) 0xE4, (byte) 0x69, (byte) 0xC2, (byte) 0x7B, 
         (byte) 0xAB, (byte) 0x0D, (byte) 0xBA, (byte) 0xA1, (byte) 0x5A, (byte) 0x16, (byte) 0x83, (byte) 0xA1};
     
-    public static void allocate(ECConfig eccfg) {
+    public CryptoOperations(ECConfig eccfg) {
         placeholder = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
         placeholder.initializeECPoint_SecP256r1();
 
@@ -149,7 +149,7 @@ public class CryptoOperations {
         
     }
     
-    public static short Encrypt(QuorumContext quorumCtx, byte[] plaintext_arr, short plaintext_arr_offset, byte[] outArray, short perfStop) {
+    public short Encrypt(QuorumContext quorumCtx, byte[] plaintext_arr, short plaintext_arr_offset, byte[] outArray, short perfStop) {
         short outOffset = (short) 0;
 
         if (perfStop == (short) 1) {ISOException.throwIt((short) (Consts.PERF_ENCRYPT + perfStop));}
@@ -202,7 +202,7 @@ public class CryptoOperations {
     }
 
     // Share is -x_ic1
-    public static short DecryptShare(QuorumContext quorumCtx, byte[] c1_c2_arr, short c1_c2_arr_offset, byte[] outputArray, short perfStop) {
+    public short DecryptShare(QuorumContext quorumCtx, byte[] c1_c2_arr, short c1_c2_arr_offset, byte[] outputArray, short perfStop) {
 
         if (perfStop == (short) 1) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}   
         if (perfStop == (short) 2) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}            
@@ -234,7 +234,7 @@ public class CryptoOperations {
     }
     
     
-    public static short Sign(QuorumContext quorumCtx, Bignat i, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset, short perfStop) {
+    public short Sign(QuorumContext quorumCtx, Bignat i, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset, short perfStop) {
         
         if (perfStop == (short) 1) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} //153ms
         // 1. Check counter
@@ -257,7 +257,7 @@ public class CryptoOperations {
         if (perfStop == (short) 3) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +15ms
         // s
         //s_Bn.zero();
-        s_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, CryptoOperations.PRF(i, quorumCtx.secret_seed), (short) 0); // s
+        s_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, PRF(i, quorumCtx.secret_seed), (short) 0); // s
 
 
         if (perfStop == (short) 4) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +36ms
@@ -383,7 +383,7 @@ public class CryptoOperations {
     }
     
     
-    public static short addPoint(byte[] points_array, short points_array_offset, short Length, byte[] outputArray, short outputBaseOffset, short perfStop) {
+    public short addPoint(byte[] points_array, short points_array_offset, short Length, byte[] outputArray, short outputBaseOffset, short perfStop) {
     	
     	/*
     	//Coordinates
@@ -465,7 +465,7 @@ public class CryptoOperations {
     	//return (short)0;
     }    
     
-    public static short Gen_R_i(byte[] i, byte[] secret_arr, byte[] output_arr) {
+    public short Gen_R_i(byte[] i, byte[] secret_arr, byte[] output_arr) {
         //PRF(i, secret_arr); is giving correct intermediate result as real card
         //short lenW = GenPoint.getW(ECPointBase.TempBuffer65, (short) 0); // Read base point into buffer
         //return placeholder.ScalarMultiplication(ECPointBase.TempBuffer65, (short) 0, lenW, PRF(i, secret_arr), output_arr); // yG 
@@ -473,15 +473,15 @@ public class CryptoOperations {
     }
 
 
-    public static byte[] PRF(short i, byte[] secret_arr) {
+    public byte[] PRF(short i, byte[] secret_arr) {
         return PRF(Utils.shortToByteArray(i), secret_arr);
     }
     
-    public static byte[] PRF(Bignat i, byte[] secret_arr) {
+    public byte[] PRF(Bignat i, byte[] secret_arr) {
         return PRF(i.as_byte_array(), secret_arr);
     }
    
-    public static byte[] PRF(byte[] i, byte[] secret_arr) {
+    public byte[] PRF(byte[] i, byte[] secret_arr) {
         //Util.arrayFillNonAtomic(prf_result, (short) 0, (short) prf_result.length, (byte) 0); // use when MessageDigest is shorter than SHARE_SIZE_32
         md.reset();
         md.update(i, (short) 0, (short) i.length);

@@ -28,8 +28,9 @@ public class MPCApplet extends Applet {
     Bignat Sign_counter = null; // TODO: move into shared temp values
     QuorumContext[] m_quorums = null;
     
-    public static byte[] cardIDLong = null; // unique card ID generated during applet install
+    public byte[] cardIDLong = null; // unique card ID generated during applet install
     
+    CryptoOperations m_cryptoOps = null;
 
     public MPCApplet() {
         m_ecc = new ECConfig((short) 256);
@@ -38,12 +39,12 @@ public class MPCApplet extends Applet {
 
         ECPointBuilder.allocate(m_curve, m_ecc);
         ECPointBase.allocate(m_curve);
-        CryptoOperations.allocate(m_ecc);
+        m_cryptoOps = new CryptoOperations(m_ecc);
         Utils.allocate();
         
         m_quorums = new QuorumContext[Consts.MAX_QUORUMS];
         for (short i = 0; i < (short) m_quorums.length; i++) {
-            m_quorums[i] = new QuorumContext(m_ecc, m_curve);
+            m_quorums[i] = new QuorumContext(m_ecc, m_curve, m_cryptoOps);
         }
         
         Sign_counter = new Bignat((short) 2, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, m_ecc.bnh);
@@ -57,7 +58,7 @@ public class MPCApplet extends Applet {
 
         // Random card unique ID
         cardIDLong = new byte[Consts.CARD_ID_LONG_LENGTH];
-        CryptoOperations.randomData.generateData(cardIDLong, (short) 0, (short) cardIDLong.length);
+        m_cryptoOps.randomData.generateData(cardIDLong, (short) 0, (short) cardIDLong.length);
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength) {
@@ -259,7 +260,7 @@ public class MPCApplet extends Applet {
                     break;
                 case Consts.INS_ADDPOINTS:
                     dataLen = apdu.setIncomingAndReceive();
-                    len = CryptoOperations.addPoint(apdubuf, ISO7816.OFFSET_CDATA, dataLen, apdubuf, (short) 0, p1);
+                    len = m_cryptoOps.addPoint(apdubuf, ISO7816.OFFSET_CDATA, dataLen, apdubuf, (short) 0, p1);
                     apdu.setOutgoingAndSend((short) 0, len);
                     break;
                 case Consts.BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY:
@@ -306,7 +307,7 @@ public class MPCApplet extends Applet {
         // removed, requires explicit keygen operation CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);
         //CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
         
-        CryptoOperations.randomData.generateData(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
+        m_cryptoOps.randomData.generateData(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
         if (m_quorums[0].IS_BACKDOORED_EXAMPLE) {
             Util.arrayFillNonAtomic(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
         }
@@ -333,8 +334,8 @@ public class MPCApplet extends Applet {
         // TODO: check authorization
         m_quorums[0].Reset();
         // Restore proper value of modulo_Bn (was erased during the card's reset)
-        CryptoOperations.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-        CryptoOperations.aBn.set_from_byte_array((short) (CryptoOperations.aBn.length() - (short) CryptoOperations.r_for_BigInteger.length), CryptoOperations.r_for_BigInteger, (short) 0, (short) CryptoOperations.r_for_BigInteger.length);
+        m_cryptoOps.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
+        m_cryptoOps.aBn.set_from_byte_array((short) (m_cryptoOps.aBn.length() - (short) CryptoOperations.r_for_BigInteger.length), CryptoOperations.r_for_BigInteger, (short) 0, (short) CryptoOperations.r_for_BigInteger.length);
     }
     void Quorum_ResetAll() {
         // TODO: reset all quorums from QuorumContext[]
@@ -611,7 +612,7 @@ public class MPCApplet extends Applet {
     void EncryptData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
-        dataLen = CryptoOperations.Encrypt(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
+        dataLen = m_cryptoOps.Encrypt(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
     
@@ -622,7 +623,7 @@ public class MPCApplet extends Applet {
     void DecryptData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
-        dataLen = CryptoOperations.DecryptShare(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
+        dataLen = m_cryptoOps.DecryptShare(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
     
@@ -641,7 +642,7 @@ public class MPCApplet extends Applet {
         
         // TODO: Check for strictly increasing request counter
         
-        dataLen = CryptoOperations.Gen_R_i(Utils.shortToByteArray(apdubuf[ISO7816.OFFSET_P1]), m_quorums[0].secret_seed, apdubuf);
+        dataLen = m_cryptoOps.Gen_R_i(Utils.shortToByteArray(apdubuf[ISO7816.OFFSET_P1]), m_quorums[0].secret_seed, apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }  
     
@@ -667,7 +668,7 @@ public class MPCApplet extends Applet {
         
         Sign_counter.from_byte_array((short) 2, (short) 0, Utils.shortToByteArray((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff)), (short) 0);
 
-        dataLen = CryptoOperations.Sign(m_quorums[0], Sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0, apdubuf[ISO7816.OFFSET_P2]);
+        dataLen = m_cryptoOps.Sign(m_quorums[0], Sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0, apdubuf[ISO7816.OFFSET_P2]);
         apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
     }
     

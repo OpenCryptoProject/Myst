@@ -12,14 +12,13 @@ import javacard.security.KeyPair;
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class QuorumContext {
-    // Keys
-    //public DKG KeyPair;
+    private CryptoOperations cryptoOps = null;
 
     public short CARD_INDEX_THIS = 0;   // index of player realised by this card
     public short NUM_PLAYERS = 0;       // current number of players
     private Player[] players = null;      // contexts for all players (including this card)
 
-    public static boolean SETUP = false; // Have the scheme parameters been set?
+    public boolean SETUP = false; // Have the scheme parameters been set?
 
     // Signing
     public Bignat signature_counter = null;
@@ -27,9 +26,9 @@ public class QuorumContext {
 
     // Moved from DKG begin
     boolean PLAYERS_IN_RAM = true; // if true, player (participant) info is stored in RAM => faster, consuming RAM and will NOT survive card reset
-    static boolean IS_BACKDOORED_EXAMPLE = false; // if true, then applet will not follow protocol but generates backdoored applet instead
+    boolean IS_BACKDOORED_EXAMPLE = false; // if true, then applet will not follow protocol but generates backdoored applet instead
     //private byte[] privbytes = {(byte)0xB3, (byte)0x46, (byte)0x67, (byte)0x55, (byte)0x18, (byte)0x08, (byte)0x46, (byte)0x23, (byte)0xBC, (byte)0x11, (byte)0x1C, (byte)0xC5, (byte)0x3F, (byte)0xF6, (byte)0x15, (byte)0xB1, (byte)0x52, (byte)0xA3, (byte)0xF6, (byte)0xD1, (byte)0x58, (byte)0x52, (byte)0x78, (byte)0x37, (byte)0x0F, (byte)0xA1, (byte)0xBA, (byte)0x0E, (byte)0xA1, (byte)0x60, (byte)0x23, (byte)0x7E};    
-    public static final byte[] privbytes_backdoored = {(byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55};
+    public final byte[] privbytes_backdoored = {(byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55};
 
     byte[] tmp_arr = null; // TODO: used as  array for temporary result -> move to resource manager
 
@@ -51,7 +50,8 @@ public class QuorumContext {
     // Moved from DKG end
     
     
-    public QuorumContext(ECConfig eccfg, ECCurve curve) {
+    public QuorumContext(ECConfig eccfg, ECCurve curve, CryptoOperations cryptoOperations) {
+        cryptoOps = cryptoOperations;
         signature_counter = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         secret_seed = new byte[Consts.SECRET_SEED_SIZE];
         
@@ -124,22 +124,22 @@ public class QuorumContext {
             ((ECPrivateKey) pair.getPrivate()).getS(x_i_Bn, (short) 0);
                     // Compute and set corresponding public key (to backdoored private one)
             //CryptoOperations.placeholder.ScalarMultiplication(SecP256r1.G, (short) 0, (short) SecP256r1.G.length, privbytes_backdoored, tmp_arr);
-            CryptoOperations.placeholder.ScalarMultiplication(CryptoOperations.GenPoint, privbytes_backdoored, tmp_arr);
+            cryptoOps.placeholder.ScalarMultiplication(cryptoOps.GenPoint, privbytes_backdoored, tmp_arr);
             pub.setW(tmp_arr, (short) 0, (short) 65);
         } else {
             // Legitimate generation of key as per protocol by non-compromised participants
             ((ECPrivateKey) pair.getPrivate()).getS(x_i_Bn, (short) 0);
         }
 
-        CryptoOperations.placeholder.ScalarMultiplication(CryptoOperations.GenPoint, x_i_Bn, CARD_THIS_YS); // yG
+        cryptoOps.placeholder.ScalarMultiplication(cryptoOps.GenPoint, x_i_Bn, CARD_THIS_YS); // yG
 
         Y_EC_onTheFly.setW(CARD_THIS_YS, (short) 0, (short) CARD_THIS_YS.length);
 
         // Update stored x_i properties
         players[CARD_INDEX_THIS].bYsValid = true;
         Y_EC_onTheFly_shares_count++; // share for this card is included
-        CryptoOperations.md.reset();
-        CryptoOperations.md.doFinal(CARD_THIS_YS, (short) 0, Consts.SHARE_DOUBLE_SIZE_CARRY, players[CARD_INDEX_THIS].hash, (short) 0);
+        cryptoOps.md.reset();
+        cryptoOps.md.doFinal(CARD_THIS_YS, (short) 0, Consts.SHARE_DOUBLE_SIZE_CARRY, players[CARD_INDEX_THIS].hash, (short) 0);
         players[CARD_INDEX_THIS].bHashValid = true;
 
         // Pre-prepare engine for faster Decrypt later
@@ -281,8 +281,8 @@ public class QuorumContext {
     // ////////////////////////
 
     private boolean VerifyPair(byte[] Ys, short YsOffset, short YsLength, byte[] hash) {
-        CryptoOperations.md.reset();
-        CryptoOperations.md.doFinal(Ys, YsOffset, YsLength, tmp_arr, (short) 0);
+        cryptoOps.md.reset();
+        cryptoOps.md.doFinal(Ys, YsOffset, YsLength, tmp_arr, (short) 0);
         if (Util.arrayCompare(tmp_arr, (short) 0, hash,
                 (short) 0, Consts.SHARE_BASIC_SIZE) != 0) {
             return false;

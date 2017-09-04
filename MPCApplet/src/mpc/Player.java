@@ -1,13 +1,11 @@
 package mpc;
 
-import javacard.framework.Util;
-
 /**
  *
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class Player {
-    public byte[] hash = null;          // Hash of player's input
+    public byte[] hash = null;          // Hash of player's input (commitment)
     public boolean bHashValid = false;  // Is hash currently valid?
     public boolean bYsValid = false;    // Is player's share (Ys) currently valid?
 
