@@ -12,9 +12,7 @@ import javacard.framework.Util;
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class MPCApplet extends Applet {
-
-    static boolean bIsSimulator = false;
-    static boolean bFixRandomInputs = false; // if true, predictable random numbers are used 
+    static boolean bIsSimulator = false;    // if true, applet is running in simulator. Detection Required for certain operations where simulator differs from real card
 
     ECConfig m_ecc;
     ECCurve m_curve;
@@ -26,11 +24,11 @@ public class MPCApplet extends Applet {
     // TODO: Make unified structure of input data Sign(QuorumContextIndex | command apdu)_CardKey
     // TODO: unify response codes
 
-    QuorumContext[] m_quorums = null;
     
-    public byte[] cardIDLong = null; // unique card ID generated during applet install
+    public byte[] cardIDLong = null; // unique card ID generated during the applet install
     
     MPCCryptoOperations m_cryptoOps = null;
+    QuorumContext[] m_quorums = null;
 
     public MPCApplet() {
         m_ecc = new ECConfig((short) 256);
@@ -39,6 +37,7 @@ public class MPCApplet extends Applet {
 
         ECPointBuilder.allocate(m_curve, m_ecc);
         ECPointBase.allocate(m_curve);
+        
         m_cryptoOps = new MPCCryptoOperations(m_ecc);
         
         m_quorums = new QuorumContext[Consts.MAX_QUORUMS];
@@ -46,12 +45,7 @@ public class MPCApplet extends Applet {
             m_quorums[i] = new QuorumContext(m_ecc, m_curve, m_cryptoOps);
         }
         
-        /*// Signing - older protocol with explicit hash
-        CryptoObjects.EphimeralKey = new DKG();
-        CryptoObjects.EphimeralKey_next = new DKG();
-        */
-
-        // Random card unique ID
+        // Generate random unique card ID
         cardIDLong = new byte[Consts.CARD_ID_LONG_LENGTH];
         m_cryptoOps.randomData.generateData(cardIDLong, (short) 0, (short) cardIDLong.length);
     }
@@ -82,13 +76,6 @@ public class MPCApplet extends Applet {
         }
 
         if (buf[ISO7816.OFFSET_CLA] == Consts.CLA_MPC) {
-            byte[] apdubuf = apdu.getBuffer();
-
-            short p1 = (short) (apdubuf[ISO7816.OFFSET_P1] & 0x00FF);
-            short p2 = (short) (apdubuf[ISO7816.OFFSET_P2] & 0x00FF);
-            short len;
-            short dataLen;
-
             switch (buf[ISO7816.OFFSET_INS]) {
                 //
                 // Card bootstrapping
@@ -185,85 +172,6 @@ public class MPCApplet extends Applet {
                     GenerateRandomData(apdu);
                     break;
                     
-                    
-
-                    
-                    
-                    
-                    
-                    
-                /*                    
-                //    
-                // Signing - older protocol with explicit hash
-                //
-                 case Consts.INS_SIGN_INIT:
-                    CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
-                    //CryptoObjects.EphimeralKey_next.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS); //Preloading
-                    break;
-
-                case Consts.INS_SIGN_RETRIEVE_HASH:
-                    len = CryptoObjects.EphimeralKey.GetHash(apdubuf, (short) 0);
-                    apdu.setOutgoingAndSend((short) 0, len);
-                    break;
-                case Consts.INS_SIGN_STORE_HASH:
-                    CryptoObjects.EphimeralKey.SetHash(p1, apdubuf, ISO7816.OFFSET_CDATA, dataLen);
-                    break;
-                case Consts.INS_SIGN_STORE_RI:
-                    CryptoObjects.EphimeralKey.SetYs(p1, apdubuf, ISO7816.OFFSET_CDATA, dataLen);
-                    break;
-
-                case Consts.INS_SIGN_STORE_RI_N_HASH:
-                    CryptoObjects.EphimeralKey.SetYs(p1, apdubuf, (short) ISO7816.OFFSET_CDATA, (short) Consts.SHARE_SIZE_CARRY_65);
-                    CryptoObjects.EphimeralKey_next.SetHash(p1, apdubuf, (short) (ISO7816.OFFSET_CDATA + Consts.SHARE_SIZE_CARRY_65), (short) Consts.SHARE_SIZE_32);
-                    break;
-
-                case Consts.INS_SIGN_RETRIEVE_RI_N_HASH:
-                    len = CryptoObjects.EphimeralKey.GetYi(apdubuf, (short) 0);
-                    len = CryptoObjects.EphimeralKey_next.GetHash(apdubuf, Consts.SHARE_SIZE_CARRY_65);
-                    apdu.setOutgoingAndSend((short) 0, len);
-                    break;
-
-                case Consts.BUGBUG_INS_SIGN_RETRIEVE_KI:
-                    len = CryptoObjects.EphimeralKey.Getxi(apdubuf, (short) 0);
-                    apdu.setOutgoingAndSend((short) 0, len);
-                    break;
-                case Consts.BUGBUG_INS_SIGN_RETRIEVE_R:
-                    len = CryptoObjects.EphimeralKey.GetY().getW(apdubuf, (short) 0);
-                    apdu.setOutgoingAndSend((short) 0, len);
-                    break;
-*/                 
-                //    
-                // DEBUG methods    
-                //
-                case Consts.INS_TESTRSAMULT:
-                    break;
-                case Consts.INS_TESTECC:
-                    dataLen = apdu.setIncomingAndReceive();
-                    TestNativeECC(apdu, dataLen);
-                    break;
-
-                case Consts.INS_SET_BACKDOORED_EXAMPLE:
-                    // If p1 == 0x55, then set flag which will cause applet to behave as example backdoored one
-                    if (p1 == (byte) 0x55) {
-                        m_quorums[0].IS_BACKDOORED_EXAMPLE = true;
-                        // Return the value of backdoored key
-                        Util.arrayCopyNonAtomic(m_quorums[0].privbytes_backdoored, (short) 0, apdubuf, (short) 0, (short) m_quorums[0].privbytes_backdoored.length);
-                        apdu.setOutgoingAndSend((short) 0, (short) m_quorums[0].privbytes_backdoored.length);
-                    } else {
-                        m_quorums[0].IS_BACKDOORED_EXAMPLE = false;
-                    }
-                    break;
-                case Consts.INS_ADDPOINTS:
-                    dataLen = apdu.setIncomingAndReceive();
-                    len = m_cryptoOps.addPoint(apdubuf, ISO7816.OFFSET_CDATA, dataLen, apdubuf, (short) 0, p1);
-                    apdu.setOutgoingAndSend((short) 0, len);
-                    break;
-                case Consts.BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY:
-                    dataLen = apdu.setIncomingAndReceive();
-                    len = m_quorums[0].Getxi(apdubuf, (short) 0);
-                    apdu.setOutgoingAndSend((short) 0, len);
-                    break;
-
 
                 default:
                     ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
@@ -286,9 +194,6 @@ public class MPCApplet extends Applet {
         }
     }
 
-    // ///////////////////////////////////////////////////////////////////
-    // // Card Management functionality ////
-    // ///////////////////////////////////////////////////////////////////
     void Quorum_SetupNew(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short len = apdu.setIncomingAndReceive();
@@ -299,9 +204,6 @@ public class MPCApplet extends Applet {
         m_quorums[0].NUM_PLAYERS = (short) (apdubuf[ISO7816.OFFSET_P1] & 0xff);
         m_quorums[0].CARD_INDEX_THIS = (short) (apdubuf[ISO7816.OFFSET_P2] & 0xff);
 
-        // removed, requires explicit keygen operation CryptoObjects.KeyPair.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, true, false);
-        //CryptoObjects.EphimeralKey.Reset(Parameters.NUM_PLAYERS, Parameters.CARD_INDEX_THIS, false, true);
-        
         m_cryptoOps.randomData.generateData(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
         if (m_quorums[0].IS_BACKDOORED_EXAMPLE) {
             Util.arrayFillNonAtomic(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
@@ -332,6 +234,7 @@ public class MPCApplet extends Applet {
         m_cryptoOps.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
         m_cryptoOps.aBn.set_from_byte_array((short) (m_cryptoOps.aBn.length() - (short) MPCCryptoOperations.r_for_BigInteger.length), MPCCryptoOperations.r_for_BigInteger, (short) 0, (short) MPCCryptoOperations.r_for_BigInteger.length);
     }
+    
     void Quorum_ResetAll() {
         // TODO: reset all quorums from QuorumContext[]
         Quorum_Reset(null); // temporary call to legacy reset function
@@ -612,7 +515,7 @@ public class MPCApplet extends Applet {
     }
     
     /**
-     * All KeyGen_xxx executed before
+     * All KeyGen_xxx must be executed before
      * @param apdu 
      */
     void DecryptData(APDU apdu) {
@@ -701,25 +604,4 @@ public class MPCApplet extends Applet {
 
         apdu.setOutgoingAndSend((short) 0, len);
     }    
-    
-    void TestNativeECC(APDU apdu, short dataLen) {
-        /*        
-         byte[] buff = apdu.getBuffer();
-         short pointSize = (short) (buff[(short) ISO7816.OFFSET_P2] & 0x00FF);
-        
-         if (buff[ISO7816.OFFSET_P1] == (byte) 0x01) {
-         CryptoOperations.c1_EC.setW(buff, (short) ISO7816.OFFSET_CDATA, pointSize);
-         CryptoOperations.c1_EC.AddPoint(buff, (short) (ISO7816.OFFSET_CDATA + pointSize), pointSize);
-         short len = CryptoOperations.c1_EC.getW(buff, (short) 0);
-         apdu.setOutgoingAndSend((short) 0, len);            
-         }
-         if (buff[ISO7816.OFFSET_P1] == (byte) 0x02) {
-         CryptoOperations.c1_EC.setW(buff, (short) ISO7816.OFFSET_CDATA, pointSize);
-         ECPointBase.disposable_priv.setS(buff, (short) (ISO7816.OFFSET_CDATA + pointSize), (short) (dataLen - pointSize));
-         ECPointBase.ECMultiplHelper.init(ECPointBase.disposable_priv); // Set multiplier        
-         short len = ECPointBase.ScalarMultiplication(CryptoOperations.c1_EC, ECPointBase.ECMultiplHelper, buff); 
-         apdu.setOutgoingAndSend((short) 0, len);
-         }   
-         */
-    }
 }
