@@ -36,9 +36,6 @@ public class QuorumContext {
     //private byte[] privbytes = {(byte)0xB3, (byte)0x46, (byte)0x67, (byte)0x55, (byte)0x18, (byte)0x08, (byte)0x46, (byte)0x23, (byte)0xBC, (byte)0x11, (byte)0x1C, (byte)0xC5, (byte)0x3F, (byte)0xF6, (byte)0x15, (byte)0xB1, (byte)0x52, (byte)0xA3, (byte)0xF6, (byte)0xD1, (byte)0x58, (byte)0x52, (byte)0x78, (byte)0x37, (byte)0x0F, (byte)0xA1, (byte)0xBA, (byte)0x0E, (byte)0xA1, (byte)0x60, (byte)0x23, (byte)0x7E};    
     public final byte[] privbytes_backdoored = {(byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55, (byte) 0x55};
 
-    byte[] tmp_arr = null; // TODO: used as  array for temporary result -> move to resource manager
-
-
     ECCurve theCurve = null;
     private KeyPair pair = null;
     private byte[] x_i_Bn = null;           // share xi , which is a randomly sampled element from Zn
@@ -67,7 +64,6 @@ public class QuorumContext {
 
         this.pair = theCurve.newKeyPair(this.pair);
         x_i_Bn = JCSystem.makeTransientByteArray(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-        tmp_arr = JCSystem.makeTransientByteArray(Consts.SHARE_DOUBLE_SIZE_CARRY, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
 
         ///////////
         //Arrays//
@@ -130,8 +126,8 @@ public class QuorumContext {
             ((ECPrivateKey) pair.getPrivate()).getS(x_i_Bn, (short) 0);
                     // Compute and set corresponding public key (to backdoored private one)
             //CryptoOperations.placeholder.ScalarMultiplication(SecP256r1.G, (short) 0, (short) SecP256r1.G.length, privbytes_backdoored, tmp_arr);
-            cryptoOps.placeholder.ScalarMultiplication(cryptoOps.GenPoint, privbytes_backdoored, tmp_arr);
-            pub.setW(tmp_arr, (short) 0, (short) 65);
+            cryptoOps.placeholder.ScalarMultiplication(cryptoOps.GenPoint, privbytes_backdoored, cryptoOps.tmp_arr);
+            pub.setW(cryptoOps.tmp_arr, (short) 0, (short) 65);
         } else {
             // Legitimate generation of key as per protocol by non-compromised participants
             ((ECPrivateKey) pair.getPrivate()).getS(x_i_Bn, (short) 0);
@@ -185,7 +181,7 @@ public class QuorumContext {
         if (!players[id].bHashValid) {
             ISOException.throwIt(Consts.SW_INVALIDHASH);
         }
-        if (!VerifyPair(Y, YOffset, YLength, players[id].hash)) {
+        if (!cryptoOps.VerifyPair(Y, YOffset, YLength, players[id].hash)) {
             ISOException.throwIt(Consts.SW_INVALIDHASH);
         }
 
@@ -265,7 +261,7 @@ public class QuorumContext {
     // State -1
     public void Invalidate(boolean bEraseAllArrays) {
         if (bEraseAllArrays) {
-            Util.arrayFillNonAtomic(tmp_arr, (short) 0, (short) tmp_arr.length, (byte) 0);
+            Util.arrayFillNonAtomic(cryptoOps.tmp_arr, (short) 0, (short) cryptoOps.tmp_arr.length, (byte) 0);
             Util.arrayFillNonAtomic(x_i_Bn, (short) 0, (short) x_i_Bn.length, (byte) 0);
         }
         // Invalidate all items
@@ -281,20 +277,4 @@ public class QuorumContext {
         Y_EC_onTheFly_shares_count = 0;
     }
 
-    // State -1
-    // /////////////////////////
-    // Helper Functions
-    // ////////////////////////
-
-    private boolean VerifyPair(byte[] Ys, short YsOffset, short YsLength, byte[] hash) {
-        cryptoOps.md.reset();
-        cryptoOps.md.doFinal(Ys, YsOffset, YsLength, tmp_arr, (short) 0);
-        if (Util.arrayCompare(tmp_arr, (short) 0, hash,
-                (short) 0, Consts.SHARE_BASIC_SIZE) != 0) {
-            return false;
-        } else {
-            return true;
-        }
-    }
-    
 }

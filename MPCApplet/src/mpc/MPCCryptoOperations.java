@@ -47,7 +47,8 @@ public class MPCCryptoOperations {
     Bignat p_Bn = null;
     
     byte[] m_shortByteArray = null; // used to return short represenated as array of 2 bytes
-    
+    byte[] tmp_arr = null; // TODO: used as  array for temporary result -> move to resource manager
+
     
     static final short SHIFT_BYTES_AAPROX = Consts.SHARE_DOUBLE_SIZE_CARRY;
     static short res2Len = (short) ((short) 97 - SHIFT_BYTES_AAPROX);
@@ -99,7 +100,8 @@ public class MPCCryptoOperations {
     
     public MPCCryptoOperations(ECConfig eccfg) {
         temp_sign_counter = new Bignat((short) 2, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
-        
+        tmp_arr = JCSystem.makeTransientByteArray(Consts.SHARE_DOUBLE_SIZE_CARRY, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
+
         placeholder = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
         placeholder.initializeECPoint_SecP256r1();
 
@@ -509,5 +511,17 @@ public class MPCCryptoOperations {
         Util.setShort(m_shortByteArray, (short) 0, s);
         return m_shortByteArray;
     }
+    
+    public boolean VerifyPair(byte[] Ys, short YsOffset, short YsLength, byte[] hash) {
+        md.reset();
+        md.doFinal(Ys, YsOffset, YsLength, tmp_arr, (short) 0);
+        if (Util.arrayCompare(tmp_arr, (short) 0, hash,
+                (short) 0, Consts.SHARE_BASIC_SIZE) != 0) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+    
     
 }
