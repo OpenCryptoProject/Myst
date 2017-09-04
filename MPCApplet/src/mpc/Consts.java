@@ -70,7 +70,7 @@ public class Consts {
     public static final short SW_SUCCESS                        = (short) 0x9000;
     public static final short SW_TOOMANYPLAYERS                 = (short) 0x7000;
     public static final short SW_INCORRECTSTATE                 = (short) 0x7001;
-    public static final short SW_INVALIDHASH                    = (short) 0x7002;
+    public static final short SW_INVALIDCOMMITMENT              = (short) 0x7002;
     public static final short SW_INVALIDYSHARE                  = (short) 0x7003;
     public static final short SW_SHAREALREADYSTORED             = (short) 0x7004;
     public static final short SW_CANTALLOCATE_BIGNAT            = (short) 0x7005;
@@ -90,8 +90,10 @@ public class Consts {
     // Global applet settings
     public static final short MAX_NUM_PLAYERS                     = (short) 15;   // Maximum number of allowed players
     
-    public static boolean COMPUTE_Y_ONTHEFLY = true; // on-the-fly computation of aggregated pulic key is only option
-    
+    public final static boolean COMPUTE_Y_ONTHEFLY = true; // on-the-fly computation of aggregated pulic key is only option
+    public final static boolean PLAYERS_IN_RAM = true; // if true, player (participant) info is stored in RAM => faster, consuming RAM and will NOT survive card reset
+    public final static boolean IS_BACKDOORED_EXAMPLE = false; // if true, then applet will not follow protocol but generates backdoored applet instead
+
 
     // TLV types
     public final static byte TLV_TYPE_CARDUNIQUEDID    = (byte) 0x40;
@@ -109,6 +111,7 @@ public class Consts {
     public static final short SHARE_BASIC_SIZE = BASIC_ECC_LENGTH;       
     public static final short SHARE_DOUBLE_SIZE = (short) (2 * SHARE_BASIC_SIZE);           // intermediate result of multiplication operation with shares (double bit length)
     public static final short SHARE_DOUBLE_SIZE_CARRY = (short) (SHARE_DOUBLE_SIZE + 1);    // double intermediate result + 1 byte carry  
+    public static final short PUBKEY_YS_SHARE_SIZE = SHARE_DOUBLE_SIZE_CARRY;    // double intermediate result + 1 byte carry  
     public static final short SECRET_SEED_SIZE = BASIC_ECC_LENGTH;
     
     

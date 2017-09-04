@@ -204,11 +204,10 @@ public class MPCApplet extends Applet {
         m_quorums[0].NUM_PLAYERS = (short) (apdubuf[ISO7816.OFFSET_P1] & 0xff);
         m_quorums[0].CARD_INDEX_THIS = (short) (apdubuf[ISO7816.OFFSET_P2] & 0xff);
 
-        m_cryptoOps.randomData.generateData(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
-        if (m_quorums[0].IS_BACKDOORED_EXAMPLE) {
-            Util.arrayFillNonAtomic(m_quorums[0].secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
+        m_cryptoOps.randomData.generateData(m_quorums[0].signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
+        if (Consts.IS_BACKDOORED_EXAMPLE) {
+            Util.arrayFillNonAtomic(m_quorums[0].signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
         }
-        m_quorums[0].SETUP = true; // Ok, done
         
         // TODO: set state
     }
@@ -308,7 +307,7 @@ public class MPCApplet extends Applet {
         offset += 2;
         Util.setShort(buffer, offset, Consts.MAX_NUM_PLAYERS);
         offset += 2;
-        buffer[offset] = m_quorums[0].PLAYERS_IN_RAM ? (byte) 1 : (byte) 0;
+        buffer[offset] = Consts.PLAYERS_IN_RAM ? (byte) 1 : (byte) 0;
         offset++;
         buffer[offset] = Consts.COMPUTE_Y_ONTHEFLY ? (byte) 1 : (byte) 0;
         offset++;
@@ -326,7 +325,7 @@ public class MPCApplet extends Applet {
         offset++;
         Util.setShort(buffer, offset, (short) 1);
         offset += 2;
-        buffer[offset] = m_quorums[0].IS_BACKDOORED_EXAMPLE ? (byte) 1 : (byte) 0;
+        buffer[offset] = Consts.IS_BACKDOORED_EXAMPLE ? (byte) 1 : (byte) 0;
         offset += 1;
 
         apdu.setOutgoingAndSend((short) 0, offset);
@@ -353,7 +352,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
         
         // Generate new triplet
-        m_quorums[0].Reset(m_quorums[0].NUM_PLAYERS, m_quorums[0].CARD_INDEX_THIS, true);        
+        m_quorums[0].InitAndGenerateKeyPair(m_quorums[0].NUM_PLAYERS, m_quorums[0].CARD_INDEX_THIS, true);        
     }
     
     /**
@@ -368,7 +367,7 @@ public class MPCApplet extends Applet {
         // TODO: Check state
 
         // Obtain commitment for this card
-        len = m_quorums[0].GetHash(apdubuf, (short) 0);
+        len = m_quorums[0].GetShareCommitment(apdubuf, (short) 0);
         // TODO: sign the commitment (if not signed later by host)
         
         // TODO: Switch into next state
@@ -391,7 +390,7 @@ public class MPCApplet extends Applet {
         // TODO: verify signature on commitment
 
         // Store provided commitment
-        m_quorums[0].SetHash(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
+        m_quorums[0].SetShareCommitment(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
         
         // TODO: check for termination of store commitment phase 
     }
@@ -540,7 +539,7 @@ public class MPCApplet extends Applet {
         
         // TODO: Check for strictly increasing request counter
         
-        dataLen = m_cryptoOps.Gen_R_i(m_cryptoOps.shortToByteArray(apdubuf[ISO7816.OFFSET_P1]), m_quorums[0].secret_seed, apdubuf);
+        dataLen = m_cryptoOps.Gen_R_i(m_cryptoOps.shortToByteArray(apdubuf[ISO7816.OFFSET_P1]), m_quorums[0].signature_secret_seed, apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }  
     

@@ -275,7 +275,7 @@ public class MPCCryptoOperations {
         if (perfStop == (short) 3) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +15ms
         // s
         //s_Bn.zero();
-        s_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, PRF(i, quorumCtx.secret_seed), (short) 0); // s
+        s_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, PRF(i, quorumCtx.signature_secret_seed), (short) 0); // s
 
 
         if (perfStop == (short) 4) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +36ms
