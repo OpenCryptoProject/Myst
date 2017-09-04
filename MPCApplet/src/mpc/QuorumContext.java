@@ -16,6 +16,12 @@ public class QuorumContext {
 
     public short CARD_INDEX_THIS = 0;   // index of player realised by this card
     public short NUM_PLAYERS = 0;       // current number of players
+
+    class Player {
+        public byte[] hash = null;          // Hash of player's input (commitment)
+        public boolean bHashValid = false;  // Is hash currently valid?
+        public boolean bYsValid = false;    // Is player's share (Ys) currently valid?
+    }
     private Player[] players = null;      // contexts for all players (including this card)
 
     public boolean SETUP = false; // Have the scheme parameters been set?

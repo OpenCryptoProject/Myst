@@ -24,8 +24,8 @@ public class MPCApplet extends Applet {
     // TODO: Enable/disable propagation of private key to other quorum
     // TODO: Generate unique card key for signatures
     // TODO: Make unified structure of input data Sign(QuorumContextIndex | command apdu)_CardKey
+    // TODO: unify response codes
 
-    Bignat Sign_counter = null; // TODO: move into shared temp values
     QuorumContext[] m_quorums = null;
     
     public byte[] cardIDLong = null; // unique card ID generated during applet install
@@ -46,10 +46,6 @@ public class MPCApplet extends Applet {
             m_quorums[i] = new QuorumContext(m_ecc, m_curve, m_cryptoOps);
         }
         
-        Sign_counter = new Bignat((short) 2, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, m_ecc.bnh);
-
-        
-
         /*// Signing - older protocol with explicit hash
         CryptoObjects.EphimeralKey = new DKG();
         CryptoObjects.EphimeralKey_next = new DKG();
@@ -665,9 +661,9 @@ public class MPCApplet extends Applet {
         // TODO: Check authorization to ask for signs 
         // TODO: Check for strictly increasing request counter
         
-        Sign_counter.from_byte_array((short) 2, (short) 0, m_cryptoOps.shortToByteArray((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff)), (short) 0);
+        m_cryptoOps.temp_sign_counter.from_byte_array((short) 2, (short) 0, m_cryptoOps.shortToByteArray((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff)), (short) 0);
 
-        dataLen = m_cryptoOps.Sign(m_quorums[0], Sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0, apdubuf[ISO7816.OFFSET_P2]);
+        dataLen = m_cryptoOps.Sign(m_quorums[0], m_cryptoOps.temp_sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0, apdubuf[ISO7816.OFFSET_P2]);
         apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
     }
     
@@ -706,17 +702,6 @@ public class MPCApplet extends Applet {
         apdu.setOutgoingAndSend((short) 0, len);
     }    
     
-    
-    public final static byte[] xe_Bn_testInput1 = {
-        (byte) 0x03, (byte) 0xBD, (byte) 0x28, (byte) 0x6B, (byte) 0x6A, (byte) 0x22, (byte) 0x1F, (byte) 0x1B,
-        (byte) 0xFC, (byte) 0x08, (byte) 0xC6, (byte) 0xC5, (byte) 0xB0, (byte) 0x3F, (byte) 0x0B, (byte) 0xEA,
-        (byte) 0x6C, (byte) 0x38, (byte) 0xBE, (byte) 0xBA, (byte) 0xCF, (byte) 0x20, (byte) 0x2A, (byte) 0xAA,
-        (byte) 0xDF, (byte) 0xAC, (byte) 0xA3, (byte) 0x70, (byte) 0x38, (byte) 0x32, (byte) 0xF8, (byte) 0xCC,
-        (byte) 0xE0, (byte) 0xA8, (byte) 0x70, (byte) 0x88, (byte) 0xE9, (byte) 0x17, (byte) 0x21, (byte) 0xA3,
-        (byte) 0x4C, (byte) 0x8D, (byte) 0x0B, (byte) 0x97, (byte) 0x11, (byte) 0x98, (byte) 0x02, (byte) 0x46,
-        (byte) 0x04, (byte) 0x56, (byte) 0x40, (byte) 0xA1, (byte) 0xAE, (byte) 0x34, (byte) 0xC1, (byte) 0xFB,
-        (byte) 0x7D, (byte) 0xB8, (byte) 0x45, (byte) 0x28, (byte) 0xC6, (byte) 0x1B, (byte) 0xC6, (byte) 0xD0};
-
     void TestNativeECC(APDU apdu, short dataLen) {
         /*        
          byte[] buff = apdu.getBuffer();

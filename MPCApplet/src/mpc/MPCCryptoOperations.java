@@ -16,6 +16,8 @@ import javacard.security.RandomData;
 public class MPCCryptoOperations {
     RandomData randomData = null;
     MessageDigest md = null;
+    
+    Bignat temp_sign_counter = null; 
 
     ECPointBase placeholder = null; 
     ECPointBase c2_EC = null;   
@@ -96,6 +98,8 @@ public class MPCCryptoOperations {
         (byte) 0xAB, (byte) 0x0D, (byte) 0xBA, (byte) 0xA1, (byte) 0x5A, (byte) 0x16, (byte) 0x83, (byte) 0xA1};
     
     public MPCCryptoOperations(ECConfig eccfg) {
+        temp_sign_counter = new Bignat((short) 2, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        
         placeholder = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
         placeholder.initializeECPoint_SecP256r1();
 
@@ -234,7 +238,18 @@ public class MPCCryptoOperations {
         return (short) (outOffset - outputBaseOffset);        
     }
     
-    
+    /*
+    public final static byte[] xe_Bn_testInput1 = {
+     (byte) 0x03, (byte) 0xBD, (byte) 0x28, (byte) 0x6B, (byte) 0x6A, (byte) 0x22, (byte) 0x1F, (byte) 0x1B,
+     (byte) 0xFC, (byte) 0x08, (byte) 0xC6, (byte) 0xC5, (byte) 0xB0, (byte) 0x3F, (byte) 0x0B, (byte) 0xEA,
+     (byte) 0x6C, (byte) 0x38, (byte) 0xBE, (byte) 0xBA, (byte) 0xCF, (byte) 0x20, (byte) 0x2A, (byte) 0xAA,
+     (byte) 0xDF, (byte) 0xAC, (byte) 0xA3, (byte) 0x70, (byte) 0x38, (byte) 0x32, (byte) 0xF8, (byte) 0xCC,
+     (byte) 0xE0, (byte) 0xA8, (byte) 0x70, (byte) 0x88, (byte) 0xE9, (byte) 0x17, (byte) 0x21, (byte) 0xA3,
+     (byte) 0x4C, (byte) 0x8D, (byte) 0x0B, (byte) 0x97, (byte) 0x11, (byte) 0x98, (byte) 0x02, (byte) 0x46,
+     (byte) 0x04, (byte) 0x56, (byte) 0x40, (byte) 0xA1, (byte) 0xAE, (byte) 0x34, (byte) 0xC1, (byte) 0xFB,
+     (byte) 0x7D, (byte) 0xB8, (byte) 0x45, (byte) 0x28, (byte) 0xC6, (byte) 0x1B, (byte) 0xC6, (byte) 0xD0};
+    */
+
     public short Sign(QuorumContext quorumCtx, Bignat i, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset, short perfStop) {
         
         if (perfStop == (short) 1) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} //153ms
