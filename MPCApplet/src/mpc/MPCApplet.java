@@ -411,7 +411,7 @@ public class MPCApplet extends Applet {
         offset += 2;
         buffer[offset] = m_quorums[0].PLAYERS_IN_RAM ? (byte) 1 : (byte) 0;
         offset++;
-        buffer[offset] = m_quorums[0].COMPUTE_Y_ONTHEFLY ? (byte) 1 : (byte) 0;
+        buffer[offset] = Consts.COMPUTE_Y_ONTHEFLY ? (byte) 1 : (byte) 0;
         offset++;
 
         // Git commit tag

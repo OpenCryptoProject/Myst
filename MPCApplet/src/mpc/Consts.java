@@ -89,6 +89,9 @@ public class Consts {
     
     // Global applet settings
     public static final short MAX_NUM_PLAYERS                     = (short) 15;   // Maximum number of allowed players
+    
+    public static boolean COMPUTE_Y_ONTHEFLY = true; // on-the-fly computation of aggregated pulic key is only option
+    
 
     // TLV types
     public final static byte TLV_TYPE_CARDUNIQUEDID    = (byte) 0x40;
