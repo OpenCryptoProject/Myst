@@ -44,6 +44,9 @@ public class CryptoOperations {
     Bignat five_Bn = null;
     Bignat p_Bn = null;
     
+    byte[] m_shortByteArray = null; // used to return short represenated as array of 2 bytes
+    
+    
     static final short SHIFT_BYTES_AAPROX = Consts.SHARE_DOUBLE_SIZE_CARRY;
     static short res2Len = (short) ((short) 97 - SHIFT_BYTES_AAPROX);
 
@@ -142,11 +145,9 @@ public class CryptoOperations {
         five_Bn = new Bignat((short) 32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         p_Bn = new Bignat((short) 32, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         
-        if (md == null) {
-            //md = MessageDigest.getInstance(MessageDigest.ALG_SHA, false);
-            md = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, false);
-        }
+        md = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, false);
         
+        m_shortByteArray = JCSystem.makeTransientByteArray((short) 2, JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT);
     }
     
     public short Encrypt(QuorumContext quorumCtx, byte[] plaintext_arr, short plaintext_arr_offset, byte[] outArray, short perfStop) {
@@ -474,7 +475,7 @@ public class CryptoOperations {
 
 
     public byte[] PRF(short i, byte[] secret_arr) {
-        return PRF(Utils.shortToByteArray(i), secret_arr);
+        return PRF(shortToByteArray(i), secret_arr);
     }
     
     public byte[] PRF(Bignat i, byte[] secret_arr) {
@@ -488,4 +489,10 @@ public class CryptoOperations {
         md.doFinal(secret_arr, (short) 0, (short) secret_arr.length, prf_result, (short) 0);
         return prf_result;
     }
+    
+    public byte[] shortToByteArray(short s) {
+        Util.setShort(m_shortByteArray, (short) 0, s);
+        return m_shortByteArray;
+    }
+    
 }

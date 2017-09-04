@@ -40,7 +40,6 @@ public class MPCApplet extends Applet {
         ECPointBuilder.allocate(m_curve, m_ecc);
         ECPointBase.allocate(m_curve);
         m_cryptoOps = new CryptoOperations(m_ecc);
-        Utils.allocate();
         
         m_quorums = new QuorumContext[Consts.MAX_QUORUMS];
         for (short i = 0; i < (short) m_quorums.length; i++) {
@@ -642,7 +641,7 @@ public class MPCApplet extends Applet {
         
         // TODO: Check for strictly increasing request counter
         
-        dataLen = m_cryptoOps.Gen_R_i(Utils.shortToByteArray(apdubuf[ISO7816.OFFSET_P1]), m_quorums[0].secret_seed, apdubuf);
+        dataLen = m_cryptoOps.Gen_R_i(m_cryptoOps.shortToByteArray(apdubuf[ISO7816.OFFSET_P1]), m_quorums[0].secret_seed, apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }  
     
@@ -666,7 +665,7 @@ public class MPCApplet extends Applet {
         // TODO: Check authorization to ask for signs 
         // TODO: Check for strictly increasing request counter
         
-        Sign_counter.from_byte_array((short) 2, (short) 0, Utils.shortToByteArray((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff)), (short) 0);
+        Sign_counter.from_byte_array((short) 2, (short) 0, m_cryptoOps.shortToByteArray((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff)), (short) 0);
 
         dataLen = m_cryptoOps.Sign(m_quorums[0], Sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0, apdubuf[ISO7816.OFFSET_P2]);
         apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
