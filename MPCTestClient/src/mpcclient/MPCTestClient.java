@@ -38,19 +38,26 @@ import org.bouncycastle.math.ec.ECPoint;
 
 import ds.ov2.bignat.Bignat;
 import ds.ov2.bignat.Convenience;
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
 
 import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
+import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javacard.framework.AID;
+import javacard.framework.ISO7816;
 
 import javafx.util.Pair;
 import mpc.Consts;
+import mpc.PM;
 import mpc.SecP256r1;
 
 /**
@@ -60,11 +67,13 @@ import mpc.SecP256r1;
 public class MPCTestClient {
     public final static boolean _DEBUG = true;
     public final static boolean _SIMULATOR = false;
-    public final static boolean _PROFILE_PERFORMANCE = false;
+    public final static boolean _PROFILE_PERFORMANCE = true;
     public final static boolean _FAIL_ON_ASSERT = true;
     public final static boolean _IS_BACKDOORED_EXAMPLE = false; // if true, applet is set into example "backdoored" state simulating compromised node with known key
     
     public final static boolean _FIXED_PLAYERS_RNG = false;
+    
+    
     
     
     // Objects
@@ -99,10 +108,20 @@ public class MPCTestClient {
     
     static byte[] MPC_APPLET_AID = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, (byte) 0x0a, (byte) 0x4d, (byte) 0x50, (byte) 0x43, (byte) 0x41, (byte) 0x70, (byte) 0x70, (byte) 0x6c, (byte) 0x65, (byte) 0x74, (byte) 0x31};
     
+    // Performance
+    public static HashMap<Short, String> PERF_STOP_MAPPING = new HashMap<>();
+    public static byte[] PERF_COMMAND = {Consts.CLA_MPC, Consts.INS_PERF_SETSTOP, 0, 0, 2, 0, 0};
+    //public static byte[] APDU_RESET = {(byte) 0xB0, (byte) 0x03, (byte) 0x00, (byte) 0x00};
+    public static final byte[] PERF_COMMAND_NONE = {Consts.CLA_MPC, Consts.INS_PERF_SETSTOP, 0, 0, 2, 0, 0};
+    static final String PERF_TRAP_CALL = "PM.check(PM.";
+    static final String PERF_TRAP_CALL_END = ");";
+    public final static boolean MODIFY_SOURCE_FILES_BY_PERF = true;
+    // end Performance
 
     public static void main(String[] args) throws Exception {
         try {
-            //TestFastModuloViaInverseTrick();
+            buildPerfMapping();
+
             Integer targetReader = 0;
             if (args.length > 0) {
                 targetReader = Integer.getInteger(args[0]);
@@ -111,7 +130,7 @@ public class MPCTestClient {
             MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
             runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
             //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
-            runCfg.numSingleOpRepeats = 1000;
+            runCfg.numSingleOpRepeats = 1;
             MPCProtocol_playground(runCfg);
         } catch (Exception e) {
                 e.printStackTrace();
@@ -125,6 +144,10 @@ public class MPCTestClient {
     }
 
     static void MPCProtocol_playground(MPCRunConfig runCfg) throws Exception {
+        runCfg.cardName = "gd60";
+        String experimentID = String.format("%d", System.currentTimeMillis());
+        runCfg.perfFile = new FileOutputStream(String.format("MPC_DETAILPERF_log_%s.csv", experimentID));
+        
         Rands = new ECPoint[runCfg.numPlayers];
         players.clear();
         
@@ -216,7 +239,7 @@ public class MPCTestClient {
             //
             // Encrypt / Decrypt
             //
-            PerformEncryptDecrypt(BigInteger.TEN, players, channel, perfResults, perfFile);
+            PerformEncryptDecrypt(BigInteger.TEN, players, channel, perfResults, perfFile, runCfg);
 
             // Repeated measurements if required
             for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
@@ -228,7 +251,7 @@ public class MPCTestClient {
             //
             //PerformSignature(BigInteger.TEN, players, channel, perfResults, perfFile);
             PerformSignCache(players, channel, perfResults, perfFile);
-            PerformSignature(BigInteger.TEN, 1, players, channel, perfResults, perfFile);
+            PerformSignature(BigInteger.TEN, 1, players, channel, perfResults, perfFile, runCfg);
             //PerformSignature(BigInteger.valueOf(84125637), 1, players, channel, perfResults, perfFile);
 /*            
             // Repeated measurements if required
@@ -267,9 +290,33 @@ public class MPCTestClient {
 
             // Save performance results also as latex
             saveLatexPerfLog(perfResults);
+            
+            
+            if (runCfg.failedPerfTraps.size() > 0) {
+                System.out.println("#########################");
+                System.out.println("!!! SOME PERFORMANCE TRAPS NOT REACHED !!!");
+                System.out.println("#########################");
+                for (String trap : runCfg.failedPerfTraps) {
+                    System.out.println(trap);
+                }
+            } else {
+                System.out.println("##########################");
+                System.out.println("ALL PERFORMANCE TRAPS REACHED CORRECTLY");
+                System.out.println("##########################");
+            }
+
+            // Save performance traps into single file
+            String perfFileName = String.format("TRAP_RAW_%s.csv", experimentID);
+            SavePerformanceResults(runCfg.perfResultsSubpartsRaw, perfFileName);
+
+            // If required, modification of source code files is attempted
+            if (MODIFY_SOURCE_FILES_BY_PERF) {
+                String dirPath = "..\\!PerfSRC\\Lib\\";
+                InsertPerfInfoIntoFiles(dirPath, runCfg.cardName, experimentID, runCfg.perfResultsSubpartsRaw);
+            }            
         }
     }
-    
+        
     /**
      * This integration test is executed in tests - don't make any temporary changes - use 
      * @param runCfg test configurations
@@ -321,7 +368,7 @@ public class MPCTestClient {
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
             // Encrypt / Decrypt
-            PerformEncryptDecrypt(BigInteger.TEN, players, channel, perfResults, perfFile);
+            PerformEncryptDecrypt(BigInteger.TEN, players, channel, perfResults, perfFile, null);
             //Aggregate pub keys
             AggPubKey = ECPointDeSerialization(RetrievePubKey(channel), 0);
             for (SimulatedPlayer player : players) {
@@ -329,7 +376,7 @@ public class MPCTestClient {
             }
             // Sign (two options)
             PerformSignCache(players, channel, perfResults, perfFile);
-            PerformSignature(BigInteger.valueOf(84125637), 1, players, channel, perfResults, perfFile);
+            PerformSignature(BigInteger.valueOf(84125637), 1, players, channel, perfResults, perfFile, null);
 
             System.out.print("Disconnecting from card...");
             channel.getCard().disconnect(true); // Disconnect from the card
@@ -363,7 +410,7 @@ public class MPCTestClient {
         }
     }
     
-    static void PerformEncryptDecrypt(BigInteger msgToEncDec, ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
+    static void PerformEncryptDecrypt(BigInteger msgToEncDec, ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
         // BUGBUG: INS_KEYGEN_xxx must be called also for Sign, not only for Encrypt
         Long combinedTime = (long) 0;
 
@@ -418,7 +465,7 @@ public class MPCTestClient {
         // Encrypt EC Point
         byte[] plaintext = G.multiply(msgToEncDec).getEncoded(false);
         operationName = String.format("Encrypt(%s) (INS_ENCRYPT)", msgToEncDec.toString()); 
-        byte[] ciphertext = Encrypt(channel, plaintext, _PROFILE_PERFORMANCE);
+        byte[] ciphertext = Encrypt(channel, plaintext, runCfg, _PROFILE_PERFORMANCE);
         writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
         combinedTime += m_lastTransmitTime;
         Long combinedTimeDecrypt = combinedTime - m_lastTransmitTime; // Remove encryption time from combined decryption time
@@ -439,7 +486,7 @@ public class MPCTestClient {
 
             System.out.printf("\n");
             operationName = "Decrypt (INS_DECRYPT)";
-            byte[] xc1_share = Decrypt(channel, ciphertext, _PROFILE_PERFORMANCE);
+            byte[] xc1_share = Decrypt(channel, ciphertext, runCfg, _PROFILE_PERFORMANCE);
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
             combinedTimeDecrypt += m_lastTransmitTime;
@@ -516,12 +563,12 @@ public class MPCTestClient {
      * @throws NoSuchAlgorithmException
      * @throws Exception 
      */
-    static void PerformSignature(BigInteger msgToSign, int i, ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
+    static void PerformSignature(BigInteger msgToSign, int i, ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
             // Sign EC Point
             byte[] plaintext_sig = G.multiply(msgToSign).getEncoded(false);                     
             
             //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString());            
-            byte[] signature = Sign(channel, i, plaintext_sig, Rands[i-1].getEncoded(false), _PROFILE_PERFORMANCE);
+            byte[] signature = Sign(channel, i, plaintext_sig, Rands[i-1].getEncoded(false), runCfg, _PROFILE_PERFORMANCE);
             
             //Parse s from Card
             Bignat card_s_Bn = new Bignat((short) 32, false);
@@ -864,33 +911,42 @@ public class MPCTestClient {
 	 */
         private static byte[] Encrypt(CardChannel channel, byte[] plaintext)
                 throws Exception {
-            return Encrypt(channel, plaintext, false);
+            return Encrypt(channel, plaintext, null, false);
         }
-	private static byte[] Encrypt(CardChannel channel, byte[] plaintext, boolean bPerformance)
+	private static byte[] Encrypt(CardChannel channel, byte[] plaintext, MPCRunConfig runCfg, boolean bProfilePerf)
 			throws Exception {
-            if (!bPerformance) {            
+            if (!bProfilePerf) {            
 		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0,
 				plaintext);
 		ResponseAPDU response = transmit(channel, cmd);
 		return response.getData();
             } else {
-                for (byte p1 = 1; p1 <= 6; p1++) {
-                    CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, p1, 0x0, plaintext);
-                    ResponseAPDU response = transmit(channel, cmd);
-                }
+                transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
 
-                return Encrypt(channel, plaintext, false);
+                short[] PERFSTOPS_Encrypt = {PM.TRAP_CRYPTOPS_ENCRYPT_1, PM.TRAP_CRYPTOPS_ENCRYPT_2, PM.TRAP_CRYPTOPS_ENCRYPT_3, PM.TRAP_CRYPTOPS_ENCRYPT_4, PM.TRAP_CRYPTOPS_ENCRYPT_5, PM.TRAP_CRYPTOPS_ENCRYPT_6, PM.TRAP_CRYPTOPS_ENCRYPT_COMPLETE};
+                runCfg.perfStops = PERFSTOPS_Encrypt;
+                runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_ENCRYPT_COMPLETE;
+                long avgOpTime = 0;
+                String opName = "Encrypt: ";
+                for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
+                    CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0, plaintext);
+                    avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
+                }
+                System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
+                transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
+
+                return Encrypt(channel, plaintext, runCfg, false);
             }                
 	}
 
         private static byte[] Decrypt(CardChannel channel, byte[] ciphertext)
                 throws Exception {
-            return Decrypt(channel, ciphertext, false);
+            return Decrypt(channel, ciphertext, null, false);
         }        
-	private static byte[] Decrypt(CardChannel channel, byte[] ciphertext, boolean bPerformance)
+	private static byte[] Decrypt(CardChannel channel, byte[] ciphertext, MPCRunConfig runCfg, boolean bProfilePerf)
 			throws Exception {
 
-            if (!bPerformance) {
+            if (!bProfilePerf) {
 		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, 0x0,
 				ciphertext);
 		ResponseAPDU response = transmit(channel, cmd);
@@ -898,13 +954,21 @@ public class MPCTestClient {
 		return response.getData();
             }
             else {
-                for (byte p1 = 1; p1 <= 3; p1++) {
-                    CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, p1, 0x0,
-                            ciphertext);
-                    ResponseAPDU response = transmit(channel, cmd);
-                }
+                transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
 
-                return Decrypt(channel, ciphertext, false);                
+                short[] PERFSTOPS_Decrypt = {PM.TRAP_CRYPTOPS_DECRYPTSHARE_1, PM.TRAP_CRYPTOPS_DECRYPTSHARE_2, PM.TRAP_CRYPTOPS_DECRYPTSHARE_COMPLETE};
+                runCfg.perfStops = PERFSTOPS_Decrypt;
+                runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_DECRYPTSHARE_COMPLETE;
+                long avgOpTime = 0;
+                String opName = "Decrypt: ";
+                for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
+                    CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x00, 0x0, ciphertext);
+                    avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
+                }
+                System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
+                transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
+
+                return Decrypt(channel, ciphertext, runCfg, false);                
             }
 	}
 
@@ -1013,7 +1077,7 @@ public class MPCTestClient {
     }
     */
 	
-    private static byte[] Sign(CardChannel channel, int round, byte[] plaintext, byte[] Rn, boolean bPerformance) throws Exception {
+    private static byte[] Sign(CardChannel channel, int round, byte[] plaintext, byte[] Rn, MPCRunConfig runCfg, boolean bProfilePerf) throws Exception {
 /*
         // Repeated measurements if required
         long elapsed = -System.currentTimeMillis();
@@ -1026,7 +1090,7 @@ public class MPCTestClient {
         elapsed += System.currentTimeMillis();
         System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed, elapsed / (float) repeats);
 /**/
-        if (!bPerformance) {
+        if (!bProfilePerf) {
         	CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(plaintext, Rn));
         	ResponseAPDU response = transmit(channel, cmd);
 
@@ -1034,12 +1098,22 @@ public class MPCTestClient {
         }
         else {
             // Repeated measurements if required
-            for (byte p2 = 1; p2 <= 10; p2++) {
-            	CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, p2, concat(plaintext, Rn));
-                    ResponseAPDU response = transmit(channel, cmd);
+            transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
+
+            short[] PERFSTOPS_Decrypt = {PM.TRAP_CRYPTOPS_SIGN_1, PM.TRAP_CRYPTOPS_SIGN_2, PM.TRAP_CRYPTOPS_SIGN_3, PM.TRAP_CRYPTOPS_SIGN_4, PM.TRAP_CRYPTOPS_SIGN_5, PM.TRAP_CRYPTOPS_SIGN_6, PM.TRAP_CRYPTOPS_SIGN_7, PM.TRAP_CRYPTOPS_SIGN_8, PM.TRAP_CRYPTOPS_SIGN_9, PM.TRAP_CRYPTOPS_SIGN_10, PM.TRAP_CRYPTOPS_SIGN_COMPLETE};
+            runCfg.perfStops = PERFSTOPS_Decrypt;
+            runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_SIGN_COMPLETE;
+            long avgOpTime = 0;
+            String opName = "Sign: ";
+            for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
+                CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x00, concat(plaintext, Rn));
+                avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
             }
-            return Sign(channel, round, plaintext, Rn, false);
-     }
+            System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
+            transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
+
+            return Sign(channel, round, plaintext, Rn, runCfg, false);
+        }
     }
         
         
@@ -1867,5 +1941,167 @@ public class MPCTestClient {
      sig_pair = FastSign(plaintext_sig, channel);
      System.out.format(format, "Verify Signature", Verify(plaintext_sig, sig_pair.getKey(), sig_pair.getValue()));                    
      */
+    
+    
+    public static void buildPerfMapping() {
+        PERF_STOP_MAPPING.put(PM.PERF_START, "PERF_START");
+
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_ENCRYPT_1, "TRAP_CRYPTOPS_ENCRYPT_1");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_ENCRYPT_2, "TRAP_CRYPTOPS_ENCRYPT_2");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_ENCRYPT_3, "TRAP_CRYPTOPS_ENCRYPT_3");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_ENCRYPT_4, "TRAP_CRYPTOPS_ENCRYPT_4");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_ENCRYPT_5, "TRAP_CRYPTOPS_ENCRYPT_5");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_ENCRYPT_6, "TRAP_CRYPTOPS_ENCRYPT_6");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_ENCRYPT_COMPLETE, "TRAP_CRYPTOPS_ENCRYPT_COMPLETE");
+
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_DECRYPTSHARE_1, "TRAP_CRYPTOPS_DECRYPTSHARE_1");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_DECRYPTSHARE_2, "TRAP_CRYPTOPS_DECRYPTSHARE_2");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_DECRYPTSHARE_COMPLETE, "TRAP_CRYPTOPS_DECRYPTSHARE_COMPLETE");
+
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_SIGN_1, "TRAP_CRYPTOPS_SIGN_1");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_SIGN_2, "TRAP_CRYPTOPS_SIGN_2");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_SIGN_3, "TRAP_CRYPTOPS_SIGN_3");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_SIGN_4, "TRAP_CRYPTOPS_SIGN_4");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_SIGN_5, "TRAP_CRYPTOPS_SIGN_5");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_SIGN_6, "TRAP_CRYPTOPS_SIGN_6");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_SIGN_7, "TRAP_CRYPTOPS_SIGN_7");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_SIGN_8, "TRAP_CRYPTOPS_SIGN_8");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_SIGN_9, "TRAP_CRYPTOPS_SIGN_9");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_SIGN_10, "TRAP_CRYPTOPS_SIGN_10");
+        PERF_STOP_MAPPING.put(PM.TRAP_CRYPTOPS_SIGN_COMPLETE, "TRAP_CRYPTOPS_SIGN_COMPLETE");
+    }
+
+    public static String getPerfStopName(short stopID) {
+        if (PERF_STOP_MAPPING.containsKey(stopID)) {
+            return PERF_STOP_MAPPING.get(stopID);
+        } else {
+            assert (false);
+            return "PERF_UNDEFINED";
+        }
+    }
+
+    public static short getPerfStopFromName(String stopName) {
+        for (Short stopID : PERF_STOP_MAPPING.keySet()) {
+            if (PERF_STOP_MAPPING.get(stopID).equalsIgnoreCase(stopName)) {
+                return stopID;
+            }
+        }
+        assert (false);
+        return PM.TRAP_UNDEFINED;
+    }
+    
+    static long PerfAnalyzeCommand(String operationName, CommandAPDU cmd, CardChannel channel, MPCRunConfig cfg) throws CardException, IOException {
+        System.out.println(operationName);
+        short prevPerfStop = PM.PERF_START;
+        long prevTransmitTime = 0;
+        long lastFromPrevTime = 0;
+        try {
+            for (short perfStop : cfg.perfStops) {
+                System.arraycopy(shortToByteArray(perfStop), 0, PERF_COMMAND, ISO7816.OFFSET_CDATA, 2); // set required stop condition
+                String operationNamePerf = String.format("%s_%s", operationName, getPerfStopName(perfStop));
+                transmit(channel, new CommandAPDU(PERF_COMMAND)); // set performance trap
+                ResponseAPDU response = transmit(channel, cmd); // execute target operation
+                boolean bFailedToReachTrap = false;
+                if (perfStop != cfg.perfStopComplete) { // Check expected error to be equal performance trap
+                    if (response.getSW() != (perfStop & 0xffff)) {
+                        // we have not reached expected performance trap
+                        cfg.failedPerfTraps.add(getPerfStopName(perfStop));
+                        bFailedToReachTrap = true;
+                    }
+                }
+                long fromPrevTime = m_lastTransmitTime - prevTransmitTime;
+                if (bFailedToReachTrap) {
+                    cfg.perfResultsSubparts.add(String.format("[%s-%s], \tfailed to reach after %d ms (0x%x)", getPerfStopName(prevPerfStop), getPerfStopName(perfStop), m_lastTransmitTime, response.getSW()));
+                } else {
+                    cfg.perfResultsSubparts.add(String.format("[%s-%s], \t%d ms", getPerfStopName(prevPerfStop), getPerfStopName(perfStop), fromPrevTime));
+                    cfg.perfResultsSubpartsRaw.put(perfStop, new Pair(prevPerfStop, fromPrevTime));
+                    lastFromPrevTime = fromPrevTime;
+                }
+
+                prevPerfStop = perfStop;
+                prevTransmitTime = m_lastTransmitTime;
+            }
+        } catch (Exception e) {
+            // Print what we have measured so far
+            for (String res : cfg.perfResultsSubparts) {
+                System.out.println(res);
+            }
+            throw e;
+        }
+        // Print measured performance info
+        for (String res : cfg.perfResultsSubparts) {
+            System.out.println(res);
+        }
+
+        return lastFromPrevTime;
+    }    
+    
+    static void SavePerformanceResults(HashMap<Short, Pair<Short, Long>> perfResultsSubpartsRaw, String fileName) throws FileNotFoundException, IOException {
+        // Save performance traps into single file
+        FileOutputStream perfLog = new FileOutputStream(fileName);
+        String output = "perfID, previous perfID, time difference between perfID and previous perfID (ms)\n";
+        perfLog.write(output.getBytes());
+        for (Short perfID : perfResultsSubpartsRaw.keySet()) {
+            output = String.format("%d, %d, %d\n", perfID, perfResultsSubpartsRaw.get(perfID).getKey(), perfResultsSubpartsRaw.get(perfID).getValue());
+            perfLog.write(output.getBytes());
+        }
+        perfLog.close();
+    }
+
+    static void InsertPerfInfoIntoFiles(String basePath, String cardName, String experimentID, HashMap<Short, Pair<Short, Long>> perfResultsSubpartsRaw) throws FileNotFoundException, IOException {
+        File dir = new File(basePath);
+        String[] filesArray = dir.list();
+        if ((filesArray != null) && (dir.isDirectory() == true)) {
+            // make subdir for results
+            String outputDir = String.format("%s\\perf\\%s\\", basePath, experimentID);
+            new File(outputDir).mkdirs();
+
+            for (String fileName : filesArray) {
+                File dir2 = new File(basePath + fileName);
+                if (!dir2.isDirectory()) {
+                    InsertPerfInfoIntoFile(String.format("%s\\%s", basePath, fileName), cardName, experimentID, outputDir, perfResultsSubpartsRaw);
+                }
+            }
+        }
+    }
+
+    static void InsertPerfInfoIntoFile(String filePath, String cardName, String experimentID, String outputDir, HashMap<Short, Pair<Short, Long>> perfResultsSubpartsRaw) throws FileNotFoundException, IOException {
+        try {
+            BufferedReader br = new BufferedReader(new FileReader(filePath));
+            String basePath = filePath.substring(0, filePath.lastIndexOf("\\"));
+            String fileName = filePath.substring(filePath.lastIndexOf("\\"));
+
+            String fileNamePerf = String.format("%s\\%s", outputDir, fileName);
+            FileOutputStream fileOut = new FileOutputStream(fileNamePerf);
+            String strLine;
+            String resLine;
+            // For every line of program try to find perfromance trap. If found and perf. is available, then insert comment into code
+            while ((strLine = br.readLine()) != null) {
+
+                if (strLine.contains(PERF_TRAP_CALL)) {
+                    int trapStart = strLine.indexOf(PERF_TRAP_CALL);
+                    int trapEnd = strLine.indexOf(PERF_TRAP_CALL_END);
+                    // We have perf. trap, now check if we also corresponding measurement
+                    String perfTrapName = (String) strLine.substring(trapStart + PERF_TRAP_CALL.length(), trapEnd);
+                    short perfID = getPerfStopFromName(perfTrapName);
+
+                    if (perfResultsSubpartsRaw.containsKey(perfID)) {
+                        // We have measurement for this trap, add into comment section
+                        resLine = String.format("%s // %d ms (%s,%s) %s", (String) strLine.substring(0, trapEnd + PERF_TRAP_CALL_END.length()), perfResultsSubpartsRaw.get(perfID).getValue(), cardName, experimentID, (String) strLine.subSequence(trapEnd + PERF_TRAP_CALL_END.length(), strLine.length()));
+                    } else {
+                        resLine = strLine;
+                    }
+                } else {
+                    resLine = strLine;
+                }
+                resLine += "\n";
+                fileOut.write(resLine.getBytes());
+            }
+
+            fileOut.close();
+        } catch (Exception e) {
+            System.out.println(String.format("Failed to transform file %s ", filePath) + e);
+        }
+    }
     
 }

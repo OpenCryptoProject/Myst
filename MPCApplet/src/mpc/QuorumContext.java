@@ -210,7 +210,7 @@ public class QuorumContext {
         if (!players[id].bYsCommitmentValid) {
             ISOException.throwIt(Consts.SW_INVALIDCOMMITMENT);
         }
-        if (!cryptoOps.VerifyPair(Y, YOffset, YLength, players[id].YsCommitment)) {
+        if (!cryptoOps.VerifyYsCommitment(Y, YOffset, YLength, players[id].YsCommitment)) {
             ISOException.throwIt(Consts.SW_INVALIDCOMMITMENT);
         }
 

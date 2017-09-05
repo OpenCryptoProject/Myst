@@ -70,14 +70,19 @@ public class MPCApplet extends Applet {
     // ////////////////////////////////////////////////////////////////////////////////////
 
     public void process(APDU apdu) {
-        byte[] buf = apdu.getBuffer();
+        byte[] apdubuf = apdu.getBuffer();
 
         if (selectingApplet()) {
             return;
         }
 
-        if (buf[ISO7816.OFFSET_CLA] == Consts.CLA_MPC) {
-            switch (buf[ISO7816.OFFSET_INS]) {
+        if (apdubuf[ISO7816.OFFSET_CLA] == Consts.CLA_MPC) {
+            switch (apdubuf[ISO7816.OFFSET_INS]) {
+                case Consts.INS_PERF_SETSTOP:
+                    apdu.setIncomingAndReceive(); 
+                    PM.m_perfStop = Util.makeShort(apdubuf[ISO7816.OFFSET_CDATA], apdubuf[(short) (ISO7816.OFFSET_CDATA + 1)]);
+                    break;
+                
                 //
                 // Card bootstrapping
                 //
@@ -510,7 +515,7 @@ public class MPCApplet extends Applet {
     void EncryptData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
-        dataLen = m_cryptoOps.Encrypt(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
+        dataLen = m_cryptoOps.Encrypt(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
     
@@ -521,7 +526,7 @@ public class MPCApplet extends Applet {
     void DecryptData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
-        dataLen = m_cryptoOps.DecryptShare(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf, apdubuf[ISO7816.OFFSET_P1]);
+        dataLen = m_cryptoOps.DecryptShare(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
     
@@ -566,7 +571,7 @@ public class MPCApplet extends Applet {
         
         m_cryptoOps.temp_sign_counter.from_byte_array((short) 2, (short) 0, m_cryptoOps.shortToByteArray((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff)), (short) 0);
 
-        dataLen = m_cryptoOps.Sign(m_quorums[0], m_cryptoOps.temp_sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0, apdubuf[ISO7816.OFFSET_P2]);
+        dataLen = m_cryptoOps.Sign(m_quorums[0], m_cryptoOps.temp_sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0);
         apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
     }
     

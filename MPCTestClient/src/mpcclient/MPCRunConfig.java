@@ -1,5 +1,9 @@
 package mpcclient;
 
+import java.io.FileOutputStream;
+import java.util.ArrayList;
+import java.util.HashMap;
+import javafx.util.Pair;
 import mpc.MPCApplet;
 
 /**
@@ -13,6 +17,14 @@ public class MPCRunConfig {
     int numWholeTestRepeats = 1;
     int numSingleOpRepeats = 3;
     public Class appletToSimulate;    
+    public short[] perfStops = null;
+    public short perfStopComplete = -1;
+    public ArrayList<String> failedPerfTraps = new ArrayList<>();
+    public ArrayList<String> perfResultsSubparts = new ArrayList<>();
+    public HashMap<Short, Pair<Short, Long>> perfResultsSubpartsRaw = new HashMap<>(); // hashmap with key being perf trap id, folowed by pair <prevTrapID, elapsedTimeFromPrev>
+    FileOutputStream perfFile;
+    public String cardName;
+
     
     public enum CARD_TYPE {
         PHYSICAL, JCOPSIM, JCARDSIMLOCAL, JCARDSIMREMOTE
@@ -28,6 +40,7 @@ public class MPCRunConfig {
         runCfg.numSingleOpRepeats = 3;
         runCfg.testCardType = CARD_TYPE.PHYSICAL;
         runCfg.appletToSimulate = MPCApplet.class;
+        runCfg.cardName = "unknown";
         
         return runCfg;
     }
