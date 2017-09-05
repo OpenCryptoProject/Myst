@@ -225,7 +225,7 @@ public class MPCCryptoOperations {
             len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, ECPointBase.ECMultiplHelperDecrypt, outputArray); // -xyG
         } else {
             // Use this with JCMathLib
-            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, quorumCtx.Getxi(), outputArray); // -xyG
+            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, quorumCtx.GetXi(), outputArray); // -xyG
         }        
 
         if (perfStop == (short) 3) {ISOException.throwIt((short) (Consts.PERF_DECRYPT + perfStop));}
@@ -285,7 +285,7 @@ public class MPCCryptoOperations {
 
         if (perfStop == (short) 5) {ISOException.throwIt((short) (Consts.PERF_SIGN + perfStop));} // +18ms
         //xi_Bn.zero();
-        xi_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, quorumCtx.Getxi(), (short) 0);
+        xi_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, quorumCtx.GetXi(), (short) 0);
         //xe_Bn.mult(xi_Bn, e_Bn);  // 330ms
         xe_Bn.mult_RSATrick(xi_Bn, e_Bn); // 90ms
         //test_multRSATrick(xi_Bn, e_Bn, null, xe_Bn);

@@ -78,6 +78,10 @@ public class Consts {
     public static final short SW_NOTSUPPORTEDYET                = (short) 0x7007;
     public static final short SW_INTERNALSTATEMISMATCH          = (short) 0x7008;
     public static final short SW_INVALIDPLAYERINDEX             = (short) 0x7009;
+    public static final short SW_UNKNOWNSTATE                   = (short) 0x700a;
+    public static final short SW_UNKNOWNFUNCTION                = (short) 0x700b;
+    public static final short SW_COMMITMENTALREADYSTORED        = (short) 0x700c;
+    public static final short SW_INCORRECTSTATETRANSITION       = (short) 0x700d;
     
     
     

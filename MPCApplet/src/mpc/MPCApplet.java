@@ -18,11 +18,12 @@ public class MPCApplet extends Applet {
     ECCurve m_curve;
     
     // TODO: Every card can participate in multiple quorums => QuorumContext[]. For preventive security reasons, number of QuorumContexts can be 1 => no overlapping of protocols
+    // TODO: State checks and enforcement
     // TODO: Every quorum can be executing different protocol (keygen, enc, dec, sign, rng) - allow only one running protocol at the time for given quorum
     // TODO: Enable/disable propagation of private key to other quorum
     // TODO: Generate unique card key for signatures
     // TODO: Make unified structure of input data Sign(QuorumContextIndex | command apdu)_CardKey
-    // TODO: unify response codes
+    // TODO: Unify response codes
 
     
     public byte[] cardIDLong = null; // unique card ID generated during the applet install
@@ -278,7 +279,7 @@ public class MPCApplet extends Applet {
         offset++;
         Util.setShort(buffer, offset, (short) 2);
         offset += 2;
-        Util.setShort(buffer, offset, m_quorums[0].getState()); // TODO: read states from all quorums
+        Util.setShort(buffer, offset, m_quorums[0].GetState()); // TODO: read states from all quorums
         offset += 2;
 
         buffer[offset] = Consts.TLV_TYPE_EPHIMERAL_STATE;
