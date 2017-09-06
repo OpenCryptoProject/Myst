@@ -7,8 +7,9 @@ import javacard.framework.ISOException;
  * @author Petr Svenda
  */
 public class StateModel {
+    private short STATE_KEYGEN = STATE_UNINITIALIZED;
+    
     // Protocol state constants
-
     public static final byte STATE_UNINITIALIZED = (byte) -1;
     public static final byte STATE_KEYGEN_CLEARED = (byte) 0;
     public static final byte STATE_KEYGEN_PRIVATEGENERATED = (byte) 1;
@@ -29,9 +30,20 @@ public class StateModel {
     public static final short FNC_QuorumContext_GetState            = (short) 0xf00a;
     public static final short FNC_QuorumContext_Reset               = (short) 0xf00b;
     
+    public void CheckAllowedFunction(short requestedFnc) {
+        CheckAllowedFunction(requestedFnc, STATE_KEYGEN);
+    }
     
+    public short MakeStateTransition(short newState) {
+        STATE_KEYGEN = MakeStateTransition(STATE_KEYGEN, newState);
+        return STATE_KEYGEN;
+    }
     
-    public static void CheckAllowedFunction(short requestedFnc, short currentState) {
+    public short GetState() {
+        return STATE_KEYGEN;
+    }
+    
+    private static void CheckAllowedFunction(short requestedFnc, short currentState) {
         switch (requestedFnc) {
             case FNC_QuorumContext_GetXi:
                 if (currentState == STATE_KEYGEN_KEYPAIRGENERATED) break;
@@ -72,11 +84,9 @@ public class StateModel {
             default:
                 ISOException.throwIt(Consts.SW_UNKNOWNFUNCTION);
        }
-        
-        
     }
-    
-    public static short MakeStateTransition(short currentState, short newState) {
+
+    private static short MakeStateTransition(short currentState, short newState) {
         switch (newState) {
             case STATE_KEYGEN_CLEARED:
                 break; // keypair can be cleared in any state

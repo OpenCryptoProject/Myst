@@ -37,7 +37,7 @@ public class QuorumContext {
     private short Y_EC_onTheFly_shares_count = 0; // number of public key shares already provided and combined during KeyGen_StorePublicKey
     private short num_commitments_count  = 0;     // number of stored commitments
 
-    private short STATE_KEYGEN = StateModel.STATE_UNINITIALIZED; // current state of the protocol run - some operations are not available in given state    
+    private StateModel state = null; // current state of the protocol run - some operations are not available in given state    
     
     
     public QuorumContext(ECConfig eccfg, ECCurve curve, MPCCryptoOperations cryptoOperations) {
@@ -63,17 +63,18 @@ public class QuorumContext {
         Y_EC_onTheFly = ECPointBuilder.createPoint(SecP256r1.KEY_LENGTH);
         Y_EC_onTheFly.initializeECPoint_SecP256r1();
 
-        STATE_KEYGEN = StateModel.MakeStateTransition(STATE_KEYGEN, StateModel.STATE_KEYGEN_CLEARED);
+        state = new StateModel();
+        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
     }
     
     public void Reset() {
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_Reset, STATE_KEYGEN);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Reset);
         Invalidate(true);
     }
     
     short GetState() {
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetState, STATE_KEYGEN);
-        return STATE_KEYGEN;
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetState);
+        return state.GetState();
     }
 
     /**
@@ -84,7 +85,7 @@ public class QuorumContext {
      * @param bPrepareDecryption if true, speedup engines for fast decryption are pre-prepared
      */
     public void InitAndGenerateKeyPair(short numPlayers, short cardID, boolean bPrepareDecryption) {
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_InitAndGenerateKeyPair, STATE_KEYGEN);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_InitAndGenerateKeyPair);
         if (numPlayers > Consts.MAX_NUM_PLAYERS) {
             ISOException.throwIt(Consts.SW_TOOMANYPLAYERS);
         }
@@ -124,11 +125,11 @@ public class QuorumContext {
                 ECPointBase.ECMultiplHelperDecrypt.init(ECPointBase.disposable_privDecrypt);
             }
         }
-        STATE_KEYGEN = StateModel.MakeStateTransition(STATE_KEYGEN, StateModel.STATE_KEYGEN_PRIVATEGENERATED);
+        state.MakeStateTransition(StateModel.STATE_KEYGEN_PRIVATEGENERATED);
         
         // In extreme case, quorum is of size 1 and final key is generated
         if (Y_EC_onTheFly_shares_count == NUM_PLAYERS) {
-            STATE_KEYGEN = StateModel.MakeStateTransition(STATE_KEYGEN, StateModel.STATE_KEYGEN_KEYPAIRGENERATED);
+            state.MakeStateTransition(StateModel.STATE_KEYGEN_KEYPAIRGENERATED);
         }
     }
     
@@ -138,7 +139,7 @@ public class QuorumContext {
      * some participants are malicious. Private key bytes are all 0x55 ... 0x55
      */
     void GenerateExampleBackdooredKeyPair() {
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_GenerateExampleBackdooredKeyPair, STATE_KEYGEN);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GenerateExampleBackdooredKeyPair);
         // If enabled, key is not generated randomly as required per protocol, but fixed to vulnerable value instead
         ECPublicKey pub = (ECPublicKey) pair.getPublic();
         ECPrivateKey priv = (ECPrivateKey) pair.getPrivate();
@@ -152,7 +153,7 @@ public class QuorumContext {
     }
 
     public short GetShareCommitment(byte[] array, short offset) {
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetShareCommitment, STATE_KEYGEN);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetShareCommitment);
         if (players[CARD_INDEX_THIS].bYsCommitmentValid) {
             Util.arrayCopyNonAtomic(players[CARD_INDEX_THIS].YsCommitment, (short) 0, array, offset, (short) players[CARD_INDEX_THIS].YsCommitment.length);
             return (short) players[CARD_INDEX_THIS].YsCommitment.length;
@@ -164,7 +165,7 @@ public class QuorumContext {
 
     // State 0
     public void SetShareCommitment(short id, byte[] commitment, short commitmentOffset, short commitmentLength) {
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetShareCommitment, STATE_KEYGEN);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetShareCommitment);
 
         if (id < 0 || id == CARD_INDEX_THIS || id >= NUM_PLAYERS) {
             ISOException.throwIt(Consts.SW_INVALIDPLAYERINDEX);
@@ -180,7 +181,7 @@ public class QuorumContext {
 
             if (num_commitments_count == NUM_PLAYERS) {
                 // All commitments were collected, allow for export of this card share
-                STATE_KEYGEN = StateModel.MakeStateTransition(STATE_KEYGEN, StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED);  
+                state.MakeStateTransition(StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED);  
             }
             
         }
@@ -194,7 +195,7 @@ public class QuorumContext {
      * @param YLength length of share
      */
     public void SetYs(short id, byte[] Y, short YOffset, short YLength) {
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetYs, STATE_KEYGEN);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetYs);
 
         if (players[id].bYsValid) {
             ISOException.throwIt(Consts.SW_SHAREALREADYSTORED);
@@ -226,11 +227,11 @@ public class QuorumContext {
                     ISOException.throwIt(Consts.SW_INTERNALSTATEMISMATCH);
                 }
             }
-            STATE_KEYGEN = StateModel.MakeStateTransition(STATE_KEYGEN, StateModel.STATE_KEYGEN_SHARESCOLLECTED);
+            state.MakeStateTransition(StateModel.STATE_KEYGEN_SHARESCOLLECTED);
 
             // The combination of shares is performed on the fly directly into Y_EC_onTheFly
             // If all contributed, Y_EC_onTheFly holds resulting combined public key
-            STATE_KEYGEN = StateModel.MakeStateTransition(STATE_KEYGEN, StateModel.STATE_KEYGEN_KEYPAIRGENERATED);
+            state.MakeStateTransition(StateModel.STATE_KEYGEN_KEYPAIRGENERATED);
         }
     }
 
@@ -241,9 +242,9 @@ public class QuorumContext {
      * @return 
      */
     public short GetYi(byte[] commitmentBuffer, short commitmentOffset) {
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetYi, STATE_KEYGEN);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetYi);
 
-        if (STATE_KEYGEN == StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED) {
+        if (state.GetState() == StateModel.STATE_KEYGEN_COMMITMENTSCOLLECTED) {
             if (players[CARD_INDEX_THIS].bYsValid) {
                 Util.arrayCopyNonAtomic(this_card_Ys, (short) 0, commitmentBuffer, commitmentOffset, (short) this_card_Ys.length);
                 return (short) this_card_Ys.length;
@@ -258,13 +259,13 @@ public class QuorumContext {
 
     // State STATE_KEYGEN_KEYPAIRGENERATED
     public byte[] GetXi() { // Used to sign and decrypt
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetXi, STATE_KEYGEN);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetXi);
 
         return x_i_Bn;
     }
 
     public short GetXi(byte[] array, short offset) {
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetXi, STATE_KEYGEN);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetXi);
         
         Util.arrayCopyNonAtomic(x_i_Bn, (short) 0, array, offset, (short) x_i_Bn.length);
         return (short) x_i_Bn.length;
@@ -272,13 +273,13 @@ public class QuorumContext {
 
     // State STATE_KEYGEN_KEYPAIRGENERATED
     public ECPointBase GetY() {
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetY, STATE_KEYGEN);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetY);
         return Y_EC_onTheFly;
     }
 
     // State -1
     public void Invalidate(boolean bEraseAllArrays) {
-        StateModel.CheckAllowedFunction(StateModel.FNC_QuorumContext_Invalidate, STATE_KEYGEN);
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Invalidate);
 
         NUM_PLAYERS = 0;
         CARD_INDEX_THIS = 0;
@@ -306,7 +307,7 @@ public class QuorumContext {
         num_commitments_count = 0;
         signature_counter.zero();
 
-        STATE_KEYGEN = StateModel.MakeStateTransition(STATE_KEYGEN, StateModel.STATE_KEYGEN_CLEARED);
+        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
     }
 
 }
