@@ -67,7 +67,7 @@ import mpc.SecP256r1;
 public class MPCTestClient {
     public final static boolean _DEBUG = true;
     public final static boolean _SIMULATOR = false;
-    public final static boolean _PROFILE_PERFORMANCE = true;
+    public final static boolean _PROFILE_PERFORMANCE = false;
     public final static boolean _FAIL_ON_ASSERT = true;
     public final static boolean _IS_BACKDOORED_EXAMPLE = false; // if true, applet is set into example "backdoored" state simulating compromised node with known key
     

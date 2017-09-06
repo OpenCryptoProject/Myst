@@ -28,7 +28,7 @@ public class MPCApplet extends Applet {
     
     public byte[] cardIDLong = null; // unique card ID generated during the applet install
     
-    MPCCryptoOperations m_cryptoOps = null;
+    MPCCryptoOps m_cryptoOps = null;
     QuorumContext[] m_quorums = null;
 
     public MPCApplet() {
@@ -39,7 +39,7 @@ public class MPCApplet extends Applet {
         ECPointBuilder.allocate(m_curve, m_ecc);
         ECPointBase.allocate(m_curve);
         
-        m_cryptoOps = new MPCCryptoOperations(m_ecc);
+        m_cryptoOps = new MPCCryptoOps(m_ecc);
         
         m_quorums = new QuorumContext[Consts.MAX_QUORUMS];
         for (short i = 0; i < (short) m_quorums.length; i++) {
@@ -237,7 +237,7 @@ public class MPCApplet extends Applet {
         m_quorums[0].Reset();
         // Restore proper value of modulo_Bn (was erased during the card's reset)
         m_cryptoOps.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-        m_cryptoOps.aBn.set_from_byte_array((short) (m_cryptoOps.aBn.length() - (short) MPCCryptoOperations.r_for_BigInteger.length), MPCCryptoOperations.r_for_BigInteger, (short) 0, (short) MPCCryptoOperations.r_for_BigInteger.length);
+        m_cryptoOps.aBn.set_from_byte_array((short) (m_cryptoOps.aBn.length() - (short) MPCCryptoOps.r_for_BigInteger.length), MPCCryptoOps.r_for_BigInteger, (short) 0, (short) MPCCryptoOps.r_for_BigInteger.length);
     }
     
     void Quorum_ResetAll() {
@@ -515,7 +515,7 @@ public class MPCApplet extends Applet {
     void EncryptData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
-        dataLen = m_cryptoOps.Encrypt(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf);
+        dataLen = m_quorums[0].Encrypt(apdubuf, ISO7816.OFFSET_CDATA, apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
     
@@ -526,7 +526,7 @@ public class MPCApplet extends Applet {
     void DecryptData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.setIncomingAndReceive();
-        dataLen = m_cryptoOps.DecryptShare(m_quorums[0], apdubuf, ISO7816.OFFSET_CDATA, apdubuf);
+        dataLen = m_quorums[0].DecryptShare(apdubuf, ISO7816.OFFSET_CDATA, apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
     
@@ -544,8 +544,7 @@ public class MPCApplet extends Applet {
         short dataLen = apdu.setIncomingAndReceive();
         
         // TODO: Check for strictly increasing request counter
-        
-        dataLen = m_cryptoOps.Gen_R_i(m_cryptoOps.shortToByteArray(apdubuf[ISO7816.OFFSET_P1]), m_quorums[0].signature_secret_seed, apdubuf);
+        dataLen = m_quorums[0].Sign_RetrieveRandomRi((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff), apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }  
     
@@ -570,8 +569,7 @@ public class MPCApplet extends Applet {
         // TODO: Check for strictly increasing request counter
         
         m_cryptoOps.temp_sign_counter.from_byte_array((short) 2, (short) 0, m_cryptoOps.shortToByteArray((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff)), (short) 0);
-
-        dataLen = m_cryptoOps.Sign(m_quorums[0], m_cryptoOps.temp_sign_counter, apdubuf, (short) (ISO7816.OFFSET_CDATA), dataLen, apdubuf, (short) 0);
+        dataLen = m_quorums[0].Sign(m_cryptoOps.temp_sign_counter, apdubuf, ISO7816.OFFSET_CDATA, dataLen, apdubuf, (short) 0);
         apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
     }
     

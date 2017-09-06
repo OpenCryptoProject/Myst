@@ -13,7 +13,7 @@ import javacard.security.RandomData;
  *
  * @author Vasilios Mavroudis and Petr Svenda
  */
-public class MPCCryptoOperations {
+public class MPCCryptoOps {
     RandomData randomData = null;
     MessageDigest md = null;
     
@@ -98,7 +98,7 @@ public class MPCCryptoOperations {
         (byte) 0x32, (byte) 0xAD, (byte) 0x5E, (byte) 0x5D, (byte) 0xE4, (byte) 0x69, (byte) 0xC2, (byte) 0x7B, 
         (byte) 0xAB, (byte) 0x0D, (byte) 0xBA, (byte) 0xA1, (byte) 0x5A, (byte) 0x16, (byte) 0x83, (byte) 0xA1};
     
-    public MPCCryptoOperations(ECConfig eccfg) {
+    public MPCCryptoOps(ECConfig eccfg) {
         temp_sign_counter = new Bignat((short) 2, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         tmp_arr = JCSystem.makeTransientByteArray(Consts.SHARE_DOUBLE_SIZE_CARRY, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
 
@@ -157,6 +157,7 @@ public class MPCCryptoOperations {
     }
     
     public short Encrypt(QuorumContext quorumCtx, byte[] plaintext_arr, short plaintext_arr_offset, byte[] outArray) {
+       
         short outOffset = (short) 0;
 
         PM.check(PM.TRAP_CRYPTOPS_ENCRYPT_1);
@@ -339,11 +340,6 @@ public class MPCCryptoOperations {
         return (short) (outOffset - outputBaseOffset);
     }
     
-    public short Gen_R_i(byte[] i, byte[] secret_arr, byte[] output_arr) {
-        return placeholder.ScalarMultiplication(GenPoint, PRF(i, secret_arr), output_arr); // yG 
-    }
-
-
     public byte[] PRF(short i, byte[] secret_arr) {
         return PRF(shortToByteArray(i), secret_arr);
     }
@@ -371,5 +367,7 @@ public class MPCCryptoOperations {
         return Util.arrayCompare(tmp_arr, (short) 0, commitment, (short) 0, Consts.SHARE_BASIC_SIZE) == 0;
     }
     
-    
+    public short Gen_R_i(byte[] i, byte[] secret_arr, byte[] output_arr) {
+        return placeholder.ScalarMultiplication(GenPoint, PRF(i, secret_arr), output_arr); // yG 
+    }
 }

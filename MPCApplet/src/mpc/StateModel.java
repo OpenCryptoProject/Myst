@@ -30,6 +30,12 @@ public class StateModel {
     public static final short FNC_QuorumContext_GetState            = (short) 0xf00a;
     public static final short FNC_QuorumContext_Reset               = (short) 0xf00b;
     
+    public static final short FNC_QuorumContext_Encrypt             = (short) 0xf00c;
+    public static final short FNC_QuorumContext_DecryptShare        = (short) 0xf00d;
+    public static final short FNC_QuorumContext_Sign_RetrieveRandomRi = (short) 0xf00e;
+    public static final short FNC_QuorumContext_Sign                = (short) 0xf00f;
+    
+    
     public void CheckAllowedFunction(short requestedFnc) {
         CheckAllowedFunction(requestedFnc, STATE_KEYGEN);
     }
@@ -81,6 +87,20 @@ public class StateModel {
             case FNC_QuorumContext_Invalidate:
                 break; // any state is ok
 
+            case FNC_QuorumContext_Encrypt:
+                 if (currentState == STATE_KEYGEN_KEYPAIRGENERATED) break;
+                 ISOException.throwIt(Consts.SW_INCORRECTSTATE);
+            case FNC_QuorumContext_DecryptShare:
+                 if (currentState == STATE_KEYGEN_KEYPAIRGENERATED) break;
+                 ISOException.throwIt(Consts.SW_INCORRECTSTATE);
+            case FNC_QuorumContext_Sign_RetrieveRandomRi:
+                 if (currentState == STATE_KEYGEN_KEYPAIRGENERATED) break;
+                 ISOException.throwIt(Consts.SW_INCORRECTSTATE);
+            case FNC_QuorumContext_Sign:
+                 if (currentState == STATE_KEYGEN_KEYPAIRGENERATED) break;
+                 ISOException.throwIt(Consts.SW_INCORRECTSTATE);
+                
+                
             default:
                 ISOException.throwIt(Consts.SW_UNKNOWNFUNCTION);
        }

@@ -1,5 +1,6 @@
 package mpc;
 
+import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
@@ -12,7 +13,7 @@ import javacard.security.KeyPair;
  * @author Vasilios Mavroudis and Petr Svenda
  */
 public class QuorumContext {
-    private MPCCryptoOperations cryptoOps = null;
+    private MPCCryptoOps cryptoOps = null;
 
     public short CARD_INDEX_THIS = 0;   // index of player realised by this card
     public short NUM_PLAYERS = 0;       // current number of players
@@ -40,7 +41,7 @@ public class QuorumContext {
     private StateModel state = null; // current state of the protocol run - some operations are not available in given state    
     
     
-    public QuorumContext(ECConfig eccfg, ECCurve curve, MPCCryptoOperations cryptoOperations) {
+    public QuorumContext(ECConfig eccfg, ECCurve curve, MPCCryptoOps cryptoOperations) {
         cryptoOps = cryptoOperations;
         signature_counter = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         signature_secret_seed = new byte[Consts.SECRET_SEED_SIZE];
@@ -277,7 +278,6 @@ public class QuorumContext {
         return Y_EC_onTheFly;
     }
 
-    // State -1
     public void Invalidate(boolean bEraseAllArrays) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Invalidate);
 
@@ -310,4 +310,25 @@ public class QuorumContext {
         state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
     }
 
+    
+    public short Encrypt(byte[] plaintext_arr, short plaintext_arr_offset, byte[] outArray) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Encrypt);
+        return cryptoOps.Encrypt(this, plaintext_arr, plaintext_arr_offset, outArray);
+    }
+    
+    public short DecryptShare(byte[] c1_c2_arr, short c1_c2_arr_offset, byte[] outputArray) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_DecryptShare);
+        return cryptoOps.DecryptShare(this, c1_c2_arr, c1_c2_arr_offset, outputArray);
+    }
+    
+    public short Sign_RetrieveRandomRi(short counter, byte[] buffer) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi);
+        return cryptoOps.Gen_R_i(cryptoOps.shortToByteArray(counter), signature_secret_seed, buffer);
+    }
+    
+    public short Sign(Bignat i, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign);
+        return cryptoOps.Sign(this, i, Rn_plaintext_arr, plaintextOffset, plaintextLength, outputArray, outputBaseOffset);   
+    }
+    
 }
