@@ -71,6 +71,7 @@ public class MPCApplet extends Applet {
 
     public void process(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
+        apdu.setIncomingAndReceive();
 
         if (selectingApplet()) {
             return;
@@ -79,7 +80,6 @@ public class MPCApplet extends Applet {
         if (apdubuf[ISO7816.OFFSET_CLA] == Consts.CLA_MPC) {
             switch (apdubuf[ISO7816.OFFSET_INS]) {
                 case Consts.INS_PERF_SETSTOP:
-                    apdu.setIncomingAndReceive(); 
                     PM.m_perfStop = Util.makeShort(apdubuf[ISO7816.OFFSET_CDATA], apdubuf[(short) (ISO7816.OFFSET_CDATA + 1)]);
                     break;
                 
@@ -200,54 +200,62 @@ public class MPCApplet extends Applet {
         }
     }
 
+    QuorumContext GetTargetQuorumContext(APDU apdu) {
+        // TODO: returns  target quorum based on info from input apdu
+        return m_quorums[0];
+    }
+    
+    
     void Quorum_SetupNew(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        short len = apdu.getIncomingLength();
         
-        // TODO: check authorization
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_SetupNew);
         
-        // TODO: extract quorum index
-        m_quorums[0].NUM_PLAYERS = (short) (apdubuf[ISO7816.OFFSET_P1] & 0xff);
-        m_quorums[0].CARD_INDEX_THIS = (short) (apdubuf[ISO7816.OFFSET_P2] & 0xff);
-
-        m_cryptoOps.randomData.generateData(m_quorums[0].signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
-        if (Consts.IS_BACKDOORED_EXAMPLE) {
-            Util.arrayFillNonAtomic(m_quorums[0].signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
-        }
-        
-        // TODO: set state
+        quorumCtx.SetupNew((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff), (short) (apdubuf[ISO7816.OFFSET_P2] & 0xff));
     }
     
     void Quorum_Remove(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        short len = apdu.getIncomingLength();
 
-        // TODO: check authorization
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GenerateRandomData);
         
-        // TODO: clear all forum sensitive values
-        Quorum_Reset(null); // temporary call to legacy reset function
+        quorumCtx.Reset();
 
         // TODO: mark context free for next Quorum_SetupNew() call
-        // TODO: set state
     }    
     
 
     void Quorum_Reset(APDU apdu) {
-        // TODO: check authorization
-        m_quorums[0].Reset();
-        // Restore proper value of modulo_Bn (was erased during the card's reset)
-        m_cryptoOps.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
-        m_cryptoOps.aBn.set_from_byte_array((short) (m_cryptoOps.aBn.length() - (short) MPCCryptoOps.r_for_BigInteger.length), MPCCryptoOps.r_for_BigInteger, (short) 0, (short) MPCCryptoOps.r_for_BigInteger.length);
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Reset);
+        // Reset target quorum context    
+        quorumCtx.Reset();
     }
     
+    /**
+     * Reset all quorum from QuorumContext[]
+     * @param apdu 
+     */
     void Quorum_ResetAll() {
-        // TODO: reset all quorums from QuorumContext[]
-        Quorum_Reset(null); // temporary call to legacy reset function
+        for (short i = 0; i < (short) m_quorums.length; i++) {
+            // TODO: shall we verify before reset? m_quorums[i].VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Reset);
+            m_quorums[i].Reset(); 
+        }
     }
 
     void Personalize_Init(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        short len = apdu.getIncomingLength();
 
         // TODO: check state
         // TODO: check authorization
@@ -259,7 +267,7 @@ public class MPCApplet extends Applet {
     
     void Personalize_SetUserAuthPubKey(APDU apdu) {
         byte[] buffer = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        short len = apdu.getIncomingLength();
 
         // TODO: check state
         // TODO: set long-term authorization key for subsequent operations
@@ -355,10 +363,12 @@ public class MPCApplet extends Applet {
      to Yi denoted hi.
     */
     void KeyGen_Init(APDU apdu) {
-        // TODO: Check state
-        
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_InitAndGenerateKeyPair);
         // Generate new triplet
-        m_quorums[0].InitAndGenerateKeyPair(m_quorums[0].NUM_PLAYERS, m_quorums[0].CARD_INDEX_THIS, true);        
+        quorumCtx.InitAndGenerateKeyPair(quorumCtx.NUM_PLAYERS, quorumCtx.CARD_INDEX_THIS, true);        
     }
     
     /**
@@ -368,15 +378,17 @@ public class MPCApplet extends Applet {
      */
     void KeyGen_RetrieveCommitment(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        short len = apdu.getIncomingLength();
 
-        // TODO: Check state
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GetShareCommitment);
 
         // Obtain commitment for this card
-        len = m_quorums[0].GetShareCommitment(apdubuf, (short) 0);
+        len = quorumCtx.GetShareCommitment(apdubuf, (short) 0);
         // TODO: sign the commitment (if not signed later by host)
         
-        // TODO: Switch into next state
         apdu.setOutgoingAndSend((short) 0, len);
     }    
     
@@ -389,16 +401,15 @@ public class MPCApplet extends Applet {
      */
     void KeyGen_StoreCommitment(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();    
+        short len = apdu.getIncomingLength();    
     
-        // TODO: Check state
-        
-        // TODO: verify signature on commitment
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_SetShareCommitment);
 
         // Store provided commitment
-        m_quorums[0].SetShareCommitment(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
-        
-        // TODO: check for termination of store commitment phase 
+        quorumCtx.SetShareCommitment(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
     }
     
     /**
@@ -412,14 +423,15 @@ public class MPCApplet extends Applet {
      */
     void KeyGen_RetrievePublicKey(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        short len = apdu.getIncomingLength();
 
-        // TODO: Check state
-        
-        // Obtain public key
-        len = m_quorums[0].GetYi(apdubuf, (short) 0);
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GetYi);
+        // Retrieve public key
+        len = quorumCtx.GetYi(apdubuf, (short) 0);
         // TODO: sign the commitment (if not signed later by host)
-        // TODO: Switch into next state
 
         apdu.setOutgoingAndSend((short) 0, len);
     }
@@ -432,16 +444,14 @@ public class MPCApplet extends Applet {
      */
     void KeyGen_StorePublicKey(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        short len = apdu.getIncomingLength();
 
-        // TODO: Check state
-        // TODO: verify signature on public key
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_SetYs);
         // Store provided public key
-        m_quorums[0].SetYs(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
-        
-        // TODO: if commitment check fails, terminate protocol and reset to intial state (and return error)
-
-        // TODO: check for termination of store pubkeys phase 
+        quorumCtx.SetYs(apdubuf[ISO7816.OFFSET_P1], apdubuf, ISO7816.OFFSET_CDATA, len);
     }    
     
     /** 
@@ -455,14 +465,17 @@ public class MPCApplet extends Applet {
      */
     void KeyGen_RetrieveAggregatedPublicKey(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        short len = apdu.getIncomingLength();
 
-        // TODO: Check state
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GetY);
         
-        len = m_quorums[0].GetY().getW(apdubuf, (short) 0);
+        // Retrieve aggregated pubic key
+        len = quorumCtx.GetY().getW(apdubuf, (short) 0);
         
         // TODO: sign output data (if not signed later by host)
-        // TODO: Switch into next state
 
         apdu.setOutgoingAndSend((short) 0, len);
     }    
@@ -476,7 +489,7 @@ public class MPCApplet extends Applet {
      */
     void KeyMove_RetrievePrivKeyShares(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        short len = apdu.getIncomingLength();
 
         // TODO: Check state
         // TODO: split y into shares for other quorum
@@ -496,7 +509,7 @@ public class MPCApplet extends Applet {
      */
     void KeyMove_SetPrivKeyShares(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        short len = apdu.getIncomingLength();
 
         // TODO: Check state
         // TODO: Combine all shares to restore secret key y
@@ -514,8 +527,14 @@ public class MPCApplet extends Applet {
      */
     void EncryptData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short dataLen = apdu.setIncomingAndReceive();
-        dataLen = m_quorums[0].Encrypt(apdubuf, ISO7816.OFFSET_CDATA, apdubuf);
+        short dataLen = apdu.getIncomingLength();
+        
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Encrypt);
+        
+        dataLen = quorumCtx.Encrypt(apdubuf, ISO7816.OFFSET_CDATA, apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
     
@@ -525,8 +544,14 @@ public class MPCApplet extends Applet {
      */
     void DecryptData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short dataLen = apdu.setIncomingAndReceive();
-        dataLen = m_quorums[0].DecryptShare(apdubuf, ISO7816.OFFSET_CDATA, apdubuf);
+        short dataLen = apdu.getIncomingLength();
+        
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_DecryptShare);
+
+        dataLen = quorumCtx.DecryptShare(apdubuf, ISO7816.OFFSET_CDATA, apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
     
@@ -541,10 +566,15 @@ public class MPCApplet extends Applet {
      */
     void Sign_RetrieveRandomRi(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short dataLen = apdu.setIncomingAndReceive();
+        short dataLen = apdu.getIncomingLength();
+        
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi);
         
         // TODO: Check for strictly increasing request counter
-        dataLen = m_quorums[0].Sign_RetrieveRandomRi((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff), apdubuf);
+        dataLen = quorumCtx.Sign_RetrieveRandomRi((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff), apdubuf);
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }  
     
@@ -563,13 +593,17 @@ public class MPCApplet extends Applet {
      */
     void Sign(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short dataLen = apdu.setIncomingAndReceive();
+        short dataLen = apdu.getIncomingLength();
 
-        // TODO: Check authorization to ask for signs 
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Sign);
+
         // TODO: Check for strictly increasing request counter
         
         m_cryptoOps.temp_sign_counter.from_byte_array((short) 2, (short) 0, m_cryptoOps.shortToByteArray((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff)), (short) 0);
-        dataLen = m_quorums[0].Sign(m_cryptoOps.temp_sign_counter, apdubuf, ISO7816.OFFSET_CDATA, dataLen, apdubuf, (short) 0);
+        dataLen = quorumCtx.Sign(m_cryptoOps.temp_sign_counter, apdubuf, ISO7816.OFFSET_CDATA, dataLen, apdubuf, (short) 0);
         apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
     }
     
@@ -579,10 +613,14 @@ public class MPCApplet extends Applet {
      */
     void Sign_GetCurrentCounter(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short dataLen = apdu.setIncomingAndReceive();
 
-        dataLen = m_quorums[0].signature_counter.copy_to_buffer(apdubuf, (short) 0);
-        apdu.setOutgoingAndSend((short) 0, dataLen); //Send signature share 
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Sign_GetCurrentCounter);
+        // Send signature share 
+        short dataLen = quorumCtx.Sign_GetCurrentCounter(apdubuf, (short) 0);
+        apdu.setOutgoingAndSend((short) 0, dataLen); 
     }    
     
     
@@ -597,8 +635,13 @@ public class MPCApplet extends Applet {
      */
     void GenerateRandomData(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
-        short len = apdu.setIncomingAndReceive();
+        short len = apdu.getIncomingLength();
 
+        // Parse incoming apdu to obtain target quorum context
+        QuorumContext quorumCtx = GetTargetQuorumContext(apdu);
+        // Verify authorization
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GenerateRandomData);
+        
         // TODO: Check state
         // TODO: Verify signature on request
         // TODO: Generate share

@@ -1,5 +1,6 @@
 package mpc;
 
+import javacard.framework.APDU;
 import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
@@ -65,12 +66,37 @@ public class QuorumContext {
         Y_EC_onTheFly.initializeECPoint_SecP256r1();
 
         state = new StateModel();
-        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
+        state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
     }
     
+    public void SetupNew(short numPlayers, short thisCardIndex) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetupNew);
+        // Reset previous state
+        Reset();
+        
+        // Setup new state
+        this.NUM_PLAYERS = numPlayers;
+        this.CARD_INDEX_THIS = thisCardIndex;
+
+        cryptoOps.randomData.generateData(signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
+        if (Consts.IS_BACKDOORED_EXAMPLE) {
+            Util.arrayFillNonAtomic(signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
+        }
+
+        // TODO: store and setup user authorization keys
+        
+        // Set state
+        state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
+        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
+    }
+
     public void Reset() {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Reset);
         Invalidate(true);
+        // Restore proper value of modulo_Bn (was possibly erased during the card's reset)
+        cryptoOps.modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
+        cryptoOps.aBn.set_from_byte_array((short) (cryptoOps.aBn.length() - (short) MPCCryptoOps.r_for_BigInteger.length), MPCCryptoOps.r_for_BigInteger, (short) 0, (short) MPCCryptoOps.r_for_BigInteger.length);
+        state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
     }
     
     short GetState() {
@@ -97,6 +123,9 @@ public class QuorumContext {
         NUM_PLAYERS = numPlayers;
         CARD_INDEX_THIS = cardID;
 
+        state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
+        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
+        
         pair.genKeyPair();
 
         if (Consts.IS_BACKDOORED_EXAMPLE) {
@@ -209,6 +238,7 @@ public class QuorumContext {
         }
         
         // Verify against previously stored hash
+        // TODO: if commitment check fails, terminate protocol and reset to intial state (and return error)
         if (!players[id].bYsCommitmentValid) {
             ISOException.throwIt(Consts.SW_INVALIDCOMMITMENT);
         }
@@ -307,7 +337,7 @@ public class QuorumContext {
         num_commitments_count = 0;
         signature_counter.zero();
 
-        state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
+        state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
     }
 
     
@@ -331,4 +361,19 @@ public class QuorumContext {
         return cryptoOps.Sign(this, i, Rn_plaintext_arr, plaintextOffset, plaintextLength, outputArray, outputBaseOffset);   
     }
     
+    public short Sign_GetCurrentCounter(byte[] outputArray, short outputBaseOffset) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_GetCurrentCounter);
+        return signature_counter.copy_to_buffer(outputArray, outputBaseOffset);
+    }
+        
+    
+    /**
+     * Verify if caller is authorized to submit request for given operation 
+     * Right now, no check is performed and request is always allowed
+     * @param apdu  
+     */
+    public void VerifyCallerAuthorization(APDU apdu, short requestedFnc) {
+        //state.CheckAllowedFunction(StateModel.FNC_QuorumContext_VerifyCallerAuthorization);
+        // TODO: enable verification if required
+    }
 }
