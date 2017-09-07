@@ -69,14 +69,21 @@ public class QuorumContext {
         state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
     }
     
-    public void SetupNew(short numPlayers, short thisCardIndex) {
+    public void SetupNew(short numPlayers, short thisPlayerIndex) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetupNew);
         // Reset previous state
         Reset();
         
+        if (numPlayers > Consts.MAX_NUM_PLAYERS || numPlayers < 1) {
+            ISOException.throwIt(Consts.SW_TOOMANYPLAYERS);
+        }
+        if (thisPlayerIndex >= Consts.MAX_NUM_PLAYERS || thisPlayerIndex < 0) {
+            ISOException.throwIt(Consts.SW_INVALIDPLAYERINDEX);
+        }
+        
         // Setup new state
         this.NUM_PLAYERS = numPlayers;
-        this.CARD_INDEX_THIS = thisCardIndex;
+        this.CARD_INDEX_THIS = thisPlayerIndex;
 
         cryptoOps.randomData.generateData(signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE); // Utilized later during signature protocol in Sign() and Gen_R_i()
         if (Consts.IS_BACKDOORED_EXAMPLE) {
@@ -111,17 +118,11 @@ public class QuorumContext {
      * @param cardID participant index assigned to this card 
      * @param bPrepareDecryption if true, speedup engines for fast decryption are pre-prepared
      */
-    public void InitAndGenerateKeyPair(short numPlayers, short cardID, boolean bPrepareDecryption) {
+    public void InitAndGenerateKeyPair(boolean bPrepareDecryption) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_InitAndGenerateKeyPair);
-        if (numPlayers > Consts.MAX_NUM_PLAYERS) {
-            ISOException.throwIt(Consts.SW_TOOMANYPLAYERS);
-        }
 
         // Invalidate previously generated keypair  
         Invalidate(false);
-
-        NUM_PLAYERS = numPlayers;
-        CARD_INDEX_THIS = cardID;
 
         state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
         state.MakeStateTransition(StateModel.STATE_KEYGEN_CLEARED);
@@ -311,9 +312,6 @@ public class QuorumContext {
     public void Invalidate(boolean bEraseAllArrays) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Invalidate);
 
-        NUM_PLAYERS = 0;
-        CARD_INDEX_THIS = 0;
-
         if (bEraseAllArrays) {
             cryptoOps.randomData.generateData(cryptoOps.tmp_arr, (short) 0, (short) cryptoOps.tmp_arr.length);
             cryptoOps.randomData.generateData(x_i_Bn, (short) 0, (short) x_i_Bn.length);
@@ -341,12 +339,12 @@ public class QuorumContext {
     }
 
     
-    public short Encrypt(byte[] plaintext_arr, short plaintext_arr_offset, byte[] outArray) {
+    public short Encrypt(byte[] plaintext_arr, short plaintext_arr_offset, short plaintext_arr_len, byte[] outArray) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Encrypt);
-        return cryptoOps.Encrypt(this, plaintext_arr, plaintext_arr_offset, outArray);
+        return cryptoOps.Encrypt(this, plaintext_arr, plaintext_arr_offset, plaintext_arr_len, outArray);
     }
     
-    public short DecryptShare(byte[] c1_c2_arr, short c1_c2_arr_offset, byte[] outputArray) {
+    public short DecryptShare(byte[] c1_c2_arr, short c1_c2_arr_offset, short c1_c2_arr_len, byte[] outputArray) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_DecryptShare);
         return cryptoOps.DecryptShare(this, c1_c2_arr, c1_c2_arr_offset, outputArray);
     }

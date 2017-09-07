@@ -156,10 +156,12 @@ public class MPCCryptoOps {
         m_shortByteArray = JCSystem.makeTransientByteArray((short) 2, JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT);
     }
     
-    public short Encrypt(QuorumContext quorumCtx, byte[] plaintext_arr, short plaintext_arr_offset, byte[] outArray) {
+    public short Encrypt(QuorumContext quorumCtx, byte[] plaintext_arr, short plaintext_arr_offset, short plaintext_arr_len, byte[] outArray) {
        
         short outOffset = (short) 0;
-
+        
+        // TODO: check input data validity
+        
         PM.check(PM.TRAP_CRYPTOPS_ENCRYPT_1);
 
         // Encrypt

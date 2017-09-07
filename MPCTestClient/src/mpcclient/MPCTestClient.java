@@ -74,7 +74,7 @@ public class MPCTestClient {
     public final static boolean _FIXED_PLAYERS_RNG = false;
     
     
-    
+    public final static short QUORUM_INDEX = 0;
     
     // Objects
     public static String format = "%-40s:%s%n\n-------------------------------------------------------------------------------\n";
@@ -195,17 +195,17 @@ public class MPCTestClient {
 
             // Setup
             String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-            System.out.format(format, operationName, Setup(channel, runCfg.numPlayers, runCfg.thisCardID));
+            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
             // Reset
             operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-            System.out.format(format, operationName, Reset(channel));
+            System.out.format(format, operationName, Reset(channel, QUORUM_INDEX));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
             // Setup again
             operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-            System.out.format(format, operationName, Setup(channel, runCfg.numPlayers, runCfg.thisCardID));
+            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
             // BUGBUG: Signature without previous EncryptDecrypt will fail on CryptoObjects.KeyPair.Getxi() - as no INS_KEYGEN_xxx was called
@@ -354,23 +354,23 @@ public class MPCTestClient {
 
             // Setup
             String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-            System.out.format(format, operationName, Setup(channel, runCfg.numPlayers, runCfg.thisCardID));
+            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
             // Reset
             operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-            System.out.format(format, operationName, Reset(channel));
+            System.out.format(format, operationName, Reset(channel, QUORUM_INDEX));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
             // Setup again
             operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-            System.out.format(format, operationName, Setup(channel, runCfg.numPlayers, runCfg.thisCardID));
+            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
             // Encrypt / Decrypt
             PerformEncryptDecrypt(BigInteger.TEN, players, channel, perfResults, perfFile, null);
             //Aggregate pub keys
-            AggPubKey = ECPointDeSerialization(RetrievePubKey(channel), 0);
+            AggPubKey = ECPointDeSerialization(RetrievePubKey(channel, QUORUM_INDEX), 0);
             for (SimulatedPlayer player : players) {
                 AggPubKey = AggPubKey.add(player.pub_key_EC);
             }
@@ -416,26 +416,26 @@ public class MPCTestClient {
 
         // Generate KeyPair in card
         String operationName = "Generate KeyPair (INS_KEYGEN_INIT)";
-        System.out.format(format, operationName, GenKeyPair(channel));
+        System.out.format(format, operationName, GenKeyPair(channel, QUORUM_INDEX));
         writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
         combinedTime += m_lastTransmitTime;
 
         // Retrieve Hash from card
         operationName = "Retrieve Hash of pub key (INS_KEYGEN_RETRIEVE_HASH)";
-        System.out.format(format, operationName, RetrievePubKeyHash(channel));
+        System.out.format(format, operationName, RetrievePubKeyHash(channel, QUORUM_INDEX));
         writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
         combinedTime += m_lastTransmitTime;
 
         // Push hash for all our pub keys
         operationName = "Store pub key hash (INS_KEYGEN_STORE_HASH)";
         for (SimulatedPlayer player : players) {
-            System.out.format(format, operationName, StorePubKeyHash(channel, player.playerID, player.pub_key_Hash));
+            System.out.format(format, operationName, StorePubKeyHash(channel, QUORUM_INDEX, player.playerID, player.pub_key_Hash));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
         // Retrieve card's Public Key
         operationName = "Retrieve Pub Key (INS_KEYGEN_RETRIEVE_PUBKEY)";
-        ECPoint pub_share_EC = ECPointDeSerialization(RetrievePubKey(channel), 0);
+        ECPoint pub_share_EC = ECPointDeSerialization(RetrievePubKey(channel, QUORUM_INDEX), 0);
         System.out.format(format, operationName, bytesToHex(pub_share_EC.getEncoded(false)));
         writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
         combinedTime += m_lastTransmitTime;
@@ -443,7 +443,7 @@ public class MPCTestClient {
         // Push all public keys
         operationName = "Store Pub Key (INS_KEYGEN_STORE_PUBKEY)";
         for (SimulatedPlayer player : players) {
-            System.out.format(format, operationName, StorePubKey(channel, player.playerID, player.pub_key_EC.getEncoded(false)));
+            System.out.format(format, operationName, StorePubKey(channel, QUORUM_INDEX, player.playerID, player.pub_key_EC.getEncoded(false)));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
@@ -458,14 +458,14 @@ public class MPCTestClient {
         
         // Retrieve Aggregated Y
         operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
-        System.out.format(format, operationName, RetrieveAggPubKey(channel));
+        System.out.format(format, operationName, RetrieveAggPubKey(channel, QUORUM_INDEX));
         writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
         combinedTime += m_lastTransmitTime;
 
         // Encrypt EC Point
         byte[] plaintext = G.multiply(msgToEncDec).getEncoded(false);
         operationName = String.format("Encrypt(%s) (INS_ENCRYPT)", msgToEncDec.toString()); 
-        byte[] ciphertext = Encrypt(channel, plaintext, runCfg, _PROFILE_PERFORMANCE);
+        byte[] ciphertext = Encrypt(channel, QUORUM_INDEX, plaintext, runCfg, _PROFILE_PERFORMANCE);
         writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
         combinedTime += m_lastTransmitTime;
         Long combinedTimeDecrypt = combinedTime - m_lastTransmitTime; // Remove encryption time from combined decryption time
@@ -486,7 +486,7 @@ public class MPCTestClient {
 
             System.out.printf("\n");
             operationName = "Decrypt (INS_DECRYPT)";
-            byte[] xc1_share = Decrypt(channel, ciphertext, runCfg, _PROFILE_PERFORMANCE);
+            byte[] xc1_share = Decrypt(channel, QUORUM_INDEX, ciphertext, runCfg, _PROFILE_PERFORMANCE);
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
             combinedTimeDecrypt += m_lastTransmitTime;
@@ -532,8 +532,8 @@ public class MPCTestClient {
         one.one();
         counter.one();
 
-        for (int round = 1; round <= Rands.length; round++) {
-            Rands[round - 1] = ECPointDeSerialization(RetrieveRI(channel, round), 0);
+        for (short round = 1; round <= Rands.length; round++) {
+            Rands[round - 1] = ECPointDeSerialization(RetrieveRI(channel, QUORUM_INDEX, round), 0);
             System.out.format(format, "Retrieve Ri,n (INS_SIGN_RETRIEVE_RI):", bytesToHex(Rands[round - 1].getEncoded(false)));
 
             for (SimulatedPlayer player : playersList) {
@@ -568,7 +568,7 @@ public class MPCTestClient {
             byte[] plaintext_sig = G.multiply(msgToSign).getEncoded(false);                     
             
             //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString());            
-            byte[] signature = Sign(channel, i, plaintext_sig, Rands[i-1].getEncoded(false), runCfg, _PROFILE_PERFORMANCE);
+            byte[] signature = Sign(channel, QUORUM_INDEX, i, plaintext_sig, Rands[i-1].getEncoded(false), runCfg, _PROFILE_PERFORMANCE);
             
             //Parse s from Card
             Bignat card_s_Bn = new Bignat((short) 32, false);
@@ -709,7 +709,7 @@ public class MPCTestClient {
         }        
         
         private static boolean GetCardInfo(CardChannel channel) throws Exception {
-            CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_PERSONALIZE_CARDINFO, 0, 0);
+            CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_PERSONALIZE_GETCARDINFO, 0, 0);
             ResponseAPDU response = transmit(channel, cmd);
 
             // Parse response 
@@ -788,88 +788,130 @@ public class MPCTestClient {
             return checkSW(response);
         }
         
-	/* Instructions */
-	private static boolean Setup(CardChannel channel, short numPlayers, short thisPlayerID) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_SETUP_NEW, numPlayers,
-				                    thisPlayerID);
-		ResponseAPDU response = transmit(channel, cmd);
+        
+    static byte[] preparePacketData(byte operationCode, short param1) {
+        return preparePacketData(operationCode, 1, param1, null, null);
+    }
+    static byte[] preparePacketData(byte operationCode, short param1, short param2) {
+        return preparePacketData(operationCode, 2, param1, param2, null);
+    }
+    static byte[] preparePacketData(byte operationCode, short param1, short param2, short param3) {
+        return preparePacketData(operationCode, 3, param1, param2, param3);
+    }
+    static byte[] preparePacketData(byte operationCode, int numShortParams, Short param1, Short param2, Short param3) {
+        int offset = 0;
+        byte[] cmd = new byte[1 + 2 + 1 + 2 + numShortParams*2];
+        cmd[offset] = Consts.TLV_TYPE_MPCINPUTPACKET;
+        offset++;
+        shortToByteArray((short) (cmd.length - 3), cmd, offset);
+        offset += 2; 
+        cmd[offset] = operationCode;
+        offset++;
+        shortToByteArray((short) (2*2), cmd, offset);
+        offset += 2; 
+        if (numShortParams >= 1) {
+            offset = shortToByteArray(param1, cmd, offset);
+        }
+        if (numShortParams >= 2) {
+            offset = shortToByteArray(param2, cmd, offset);
+        }
+        if (numShortParams >= 3) {
+            offset = shortToByteArray(param3, cmd, offset);
+        }
+        
+        return cmd;
+    }    
+    /* Instructions */
+    private static boolean Setup(CardChannel channel, short quorumIndex, short numPlayers, short thisPlayerID) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_QUORUM_SETUP_NEW, quorumIndex, numPlayers, thisPlayerID);
 
-                return checkSW(response);
-	}
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_SETUP_NEW, 0,
+                0, packetData);
+        ResponseAPDU response = transmit(channel, cmd);
 
-	private static boolean Reset(CardChannel channel) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_RESET, 0x00, 0x00);
-		ResponseAPDU response = transmit(channel, cmd);
-		return checkSW(response);
-	}
+        return checkSW(response);
+    }
 
-	private static boolean GenKeyPair(CardChannel channel) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_INIT, 0x00,
-				0x00);
-		ResponseAPDU response = transmit(channel, cmd);
-		return checkSW(response);
-	}
+    private static boolean Reset(CardChannel channel, short quorumIndex) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_QUORUM_RESET, quorumIndex);
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_RESET, 0x00, 0x00, packetData);
+        ResponseAPDU response = transmit(channel, cmd);
+        return checkSW(response);
+    }
 
-	private static boolean RetrievePubKeyHash(CardChannel channel)
-			throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_RETRIEVE_COMMITMENT,
-				0x00, 0x00);
-		ResponseAPDU response = transmit(channel, cmd);
-		return checkSW(response);
-	}
+    private static boolean GenKeyPair(CardChannel channel, short quorumIndex) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_INIT, quorumIndex);
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_INIT, 0x00,
+                0x00, packetData);
+        ResponseAPDU response = transmit(channel, cmd);
+        return checkSW(response);
+    }
 
-	private static boolean StorePubKeyHash(CardChannel channel, int id,
-			byte[] hash_arr) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_COMMITMENT,
-				id, 0x00, hash_arr);
-		ResponseAPDU response = transmit(channel, cmd);
-		return checkSW(response);
-	}
+    private static boolean RetrievePubKeyHash(CardChannel channel, short quorumIndex)
+            throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, quorumIndex);
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_RETRIEVE_COMMITMENT,
+                0x00, 0x00, packetData);
+        ResponseAPDU response = transmit(channel, cmd);
+        return checkSW(response);
+    }
 
-	private static boolean StorePubKey(CardChannel channel, int id,
-			byte[] pub_arr) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_PUBKEY,
-				id, 0x00, pub_arr);
-		ResponseAPDU response = transmit(channel, cmd);
-		return checkSW(response);
-	}
+    private static boolean StorePubKeyHash(CardChannel channel, short quorumIndex, short id,
+            byte[] hash_arr) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_COMMITMENT, quorumIndex, id, (short) hash_arr.length);
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_COMMITMENT,
+                0x00, 0x00, concat(packetData, hash_arr));
+        ResponseAPDU response = transmit(channel, cmd);
+        return checkSW(response);
+    }
 
-	private static boolean RetrievePrivKey_DebugOnly(CardChannel channel)
-			throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-				                    Consts.BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY, 0x0, 0x0);
-		ResponseAPDU response = transmit(channel, cmd);
+    private static boolean StorePubKey(CardChannel channel, short quorumIndex, short id,
+            byte[] pub_arr) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_PUBKEY, quorumIndex, id, (short) pub_arr.length);
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_PUBKEY,
+                0x00, 0x00, concat(packetData, pub_arr));
+        ResponseAPDU response = transmit(channel, cmd);
+        return checkSW(response);
+    }
 
-		// Store Secret
-		Bignat tmp_BN = new Bignat(Consts.SHARE_BASIC_SIZE, false);
-		tmp_BN.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, (response.getData()),
-				(short) 0);
-		secret = Convenience.bi_from_bn(tmp_BN);
+    private static boolean RetrievePrivKey_DebugOnly(CardChannel channel)
+            throws Exception {
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
+                Consts.BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY, 0x0, 0x0);
+        ResponseAPDU response = transmit(channel, cmd);
 
-		return checkSW(response);
-	}
+        // Store Secret
+        Bignat tmp_BN = new Bignat(Consts.SHARE_BASIC_SIZE, false);
+        tmp_BN.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, (response.getData()),
+                (short) 0);
+        secret = Convenience.bi_from_bn(tmp_BN);
 
-	private static byte[] RetrievePubKey(CardChannel channel) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-				                    Consts.INS_KEYGEN_RETRIEVE_PUBKEY, 0x00, 0x00);
-		ResponseAPDU response = transmit(channel, cmd);
+        return checkSW(response);
+    }
 
-		PubKey = ECPointDeSerialization(response.getData(), 0); // Store Pub
+    private static byte[] RetrievePubKey(CardChannel channel, short quorumIndex) throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, quorumIndex);
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
+                Consts.INS_KEYGEN_RETRIEVE_PUBKEY, 0x00, 0x00, packetData);
+        ResponseAPDU response = transmit(channel, cmd);
 
-		// return checkSW(response);
-		return response.getData();
-	}
+        PubKey = ECPointDeSerialization(response.getData(), 0); // Store Pub
 
-	private static boolean RetrieveAggPubKey(CardChannel channel)
-			throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-				                    Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, 0x00, 0x00);
-		ResponseAPDU response = transmit(channel, cmd);
+        // return checkSW(response);
+        return response.getData();
+    }
 
-		AggPubKey = ECPointDeSerialization(response.getData(), 0); // Store Pub
+    private static boolean RetrieveAggPubKey(CardChannel channel, short quorumIndex)
+            throws Exception {
+        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, quorumIndex);
+        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
+                Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, 0x00, 0x00, packetData);
+        ResponseAPDU response = transmit(channel, cmd);
 
-		return checkSW(response);
-	}
+        AggPubKey = ECPointDeSerialization(response.getData(), 0); // Store aggregated pub
+
+        return checkSW(response);
+    }
 
         
     public static byte[] concat(byte[] a, byte[] b) {
@@ -909,15 +951,15 @@ public class MPCTestClient {
 	 * //System.out.println(bytesToHex(sum.getEncoded(false))); return
 	 * PubKey.equals(sum);//sec_new.equals(secret); }
 	 */
-        private static byte[] Encrypt(CardChannel channel, byte[] plaintext)
+        private static byte[] Encrypt(CardChannel channel, short quorumIndex, byte[] plaintext)
                 throws Exception {
-            return Encrypt(channel, plaintext, null, false);
+            return Encrypt(channel, quorumIndex, plaintext, null, false);
         }
-	private static byte[] Encrypt(CardChannel channel, byte[] plaintext, MPCRunConfig runCfg, boolean bProfilePerf)
+	private static byte[] Encrypt(CardChannel channel, short quorumIndex, byte[] plaintext, MPCRunConfig runCfg, boolean bProfilePerf)
 			throws Exception {
+            byte[] packetData = preparePacketData(Consts.INS_ENCRYPT, quorumIndex, (short) plaintext.length);
             if (!bProfilePerf) {            
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0,
-				plaintext);
+		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0, concat(packetData, plaintext));
 		ResponseAPDU response = transmit(channel, cmd);
 		return response.getData();
             } else {
@@ -929,26 +971,25 @@ public class MPCTestClient {
                 long avgOpTime = 0;
                 String opName = "Encrypt: ";
                 for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
-                    CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0, plaintext);
+                    CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0, concat(packetData, plaintext));
                     avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
                 }
                 System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
                 transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
 
-                return Encrypt(channel, plaintext, runCfg, false);
+                return Encrypt(channel, quorumIndex, plaintext, runCfg, false);
             }                
 	}
 
-        private static byte[] Decrypt(CardChannel channel, byte[] ciphertext)
+        private static byte[] Decrypt(CardChannel channel, short quorumIndex, byte[] ciphertext)
                 throws Exception {
-            return Decrypt(channel, ciphertext, null, false);
+            return Decrypt(channel, quorumIndex, ciphertext, null, false);
         }        
-	private static byte[] Decrypt(CardChannel channel, byte[] ciphertext, MPCRunConfig runCfg, boolean bProfilePerf)
+	private static byte[] Decrypt(CardChannel channel, short quorumIndex, byte[] ciphertext, MPCRunConfig runCfg, boolean bProfilePerf)
 			throws Exception {
-
+            byte[] packetData = preparePacketData(Consts.INS_DECRYPT, quorumIndex, (short) ciphertext.length);
             if (!bProfilePerf) {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, 0x0,
-				ciphertext);
+		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, 0x0, concat(packetData, ciphertext));
 		ResponseAPDU response = transmit(channel, cmd);
 
 		return response.getData();
@@ -962,13 +1003,13 @@ public class MPCTestClient {
                 long avgOpTime = 0;
                 String opName = "Decrypt: ";
                 for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
-                    CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x00, 0x0, ciphertext);
+                    CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, 0x0, concat(packetData, ciphertext));
                     avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
                 }
                 System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
                 transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
 
-                return Decrypt(channel, ciphertext, runCfg, false);                
+                return Decrypt(channel, quorumIndex, ciphertext, runCfg, false);                
             }
 	}
 
@@ -1038,9 +1079,10 @@ public class MPCTestClient {
 		return checkSW(response);
 	}
 */
-	private static byte[] RetrieveRI(CardChannel channel, int i) throws Exception {
+	private static byte[] RetrieveRI(CardChannel channel, short quorumIndex, short i) throws Exception {
+            byte[] packetData = preparePacketData(Consts.INS_SIGN_RETRIEVE_RI, quorumIndex, (short) i);
 		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN_RETRIEVE_RI,
-				i, 0x00);
+				0x00, 0x00, packetData);
 		ResponseAPDU response = transmit(channel, cmd);
 
 		//We do nothing with the key, as we just use the Aggregated R in the test cases
@@ -1077,7 +1119,7 @@ public class MPCTestClient {
     }
     */
 	
-    private static byte[] Sign(CardChannel channel, int round, byte[] plaintext, byte[] Rn, MPCRunConfig runCfg, boolean bProfilePerf) throws Exception {
+    private static byte[] Sign(CardChannel channel, short quorumIndex, int round, byte[] plaintext, byte[] Rn, MPCRunConfig runCfg, boolean bProfilePerf) throws Exception {
 /*
         // Repeated measurements if required
         long elapsed = -System.currentTimeMillis();
@@ -1089,9 +1131,11 @@ public class MPCTestClient {
         }
         elapsed += System.currentTimeMillis();
         System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed, elapsed / (float) repeats);
-/**/
+
+         /**/
+        byte[] packetData = preparePacketData(Consts.INS_SIGN, quorumIndex, (short) round, (short) ((short) plaintext.length + (short) Rn.length));
         if (!bProfilePerf) {
-        	CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(plaintext, Rn));
+        	CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(packetData, concat(plaintext, Rn)));
         	ResponseAPDU response = transmit(channel, cmd);
 
         	return response.getData();
@@ -1106,13 +1150,13 @@ public class MPCTestClient {
             long avgOpTime = 0;
             String opName = "Sign: ";
             for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
-                CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x00, concat(plaintext, Rn));
+                CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(packetData, concat(plaintext, Rn)));
                 avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
             }
             System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
             transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
 
-            return Sign(channel, round, plaintext, Rn, runCfg, false);
+            return Sign(channel, quorumIndex, round, plaintext, Rn, runCfg, false);
         }
     }
         
@@ -1159,6 +1203,11 @@ public class MPCTestClient {
 	public static byte[] shortToByteArray(int s) {
 		return new byte[] { (byte) ((s & 0xFF00) >> 8), (byte) (s & 0x00FF) };
 	}
+        public static int shortToByteArray(short s, byte[] array, int arrayOffset) {
+            array[arrayOffset] = (byte) ((s & 0xFF00) >> 8);
+            array[arrayOffset + 1] = (byte) (s & 0x00FF);
+            return arrayOffset + 2; 
+        }
 
 	public static byte[] SerializeBigInteger(BigInteger BigInt) {
 
