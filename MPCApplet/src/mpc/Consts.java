@@ -83,6 +83,7 @@ public class Consts {
     public static final short SW_UNKNOWNFUNCTION                = (short) 0x700b;
     public static final short SW_COMMITMENTALREADYSTORED        = (short) 0x700c;
     public static final short SW_INCORRECTSTATETRANSITION       = (short) 0x700d;
+    public static final short SW_FUNCTINNOTALLOWED              = (short) 0x700e;
     
     
     

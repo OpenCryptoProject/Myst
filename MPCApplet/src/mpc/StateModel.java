@@ -62,89 +62,89 @@ public class StateModel {
     }
     
     private static void CheckAllowedFunction(short requestedFnc, short currentState) {
+        // Check for functions which can be called from any state
         switch (requestedFnc) {
-            case FNC_QuorumContext_GetXi:
-                if (currentState == STATE_KEYGEN_KEYPAIRGENERATED) break;
-                ISOException.throwIt(Consts.SW_INCORRECTSTATE);
-            case FNC_QuorumContext_GetY:
-                if (currentState == STATE_KEYGEN_KEYPAIRGENERATED) break;
-                ISOException.throwIt(Consts.SW_INCORRECTSTATE);
-
-            case FNC_QuorumContext_Reset:
-                break; // any state is ok
-            case FNC_QuorumContext_SetupNew:
-                if (currentState == STATE_QUORUM_CLEARED) break; 
-                        
-            case FNC_QuorumContext_GetState:
-                break; // any state is ok
-
-            case FNC_QuorumContext_InitAndGenerateKeyPair:
-                if (currentState == STATE_KEYGEN_CLEARED) break;
-                ISOException.throwIt(Consts.SW_INCORRECTSTATE);                
+            case FNC_QuorumContext_Reset:  return;    
+            case FNC_QuorumContext_GetState: return;
+            case FNC_QuorumContext_Invalidate: return;    
+        }
+        
+        // Check if function can be called from current state
+        switch (currentState) {
+            case STATE_QUORUM_CLEARED:
+                if (requestedFnc == FNC_QuorumContext_SetupNew)  return;                   
+                ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+    
+            case STATE_QUORUM_INITIALIZED:
+                ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
                 
-            case FNC_QuorumContext_GetShareCommitment:
-                if (currentState == STATE_KEYGEN_PRIVATEGENERATED) break;
-                ISOException.throwIt(Consts.SW_INCORRECTSTATE);
-                
-            case FNC_QuorumContext_SetShareCommitment:
-                if (currentState == STATE_KEYGEN_PRIVATEGENERATED) break;
-                ISOException.throwIt(Consts.SW_INCORRECTSTATE);
+            case STATE_KEYGEN_CLEARED:
+                if (requestedFnc == FNC_QuorumContext_InitAndGenerateKeyPair) return;
+                ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED);
 
-            case FNC_QuorumContext_SetYs:
-                if (currentState == STATE_KEYGEN_COMMITMENTSCOLLECTED) break;
-                ISOException.throwIt(Consts.SW_INCORRECTSTATE);
+            case STATE_KEYGEN_PRIVATEGENERATED:
+                if (requestedFnc == FNC_QuorumContext_GetShareCommitment) return;      
+                if (requestedFnc == FNC_QuorumContext_SetShareCommitment) return;      
+                ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
 
-            case FNC_QuorumContext_GetYi:
-                if (currentState == STATE_KEYGEN_COMMITMENTSCOLLECTED) break;
-                ISOException.throwIt(Consts.SW_INCORRECTSTATE);
-                
-            case FNC_QuorumContext_Invalidate:
-                break; // any state is ok
+            case STATE_KEYGEN_COMMITMENTSCOLLECTED:
+                if (requestedFnc == FNC_QuorumContext_SetYs) return;      
+                if (requestedFnc == FNC_QuorumContext_GetYi) return;      
+                ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+    
+            case STATE_KEYGEN_SHARESCOLLECTED:
+                ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+    
+            case STATE_KEYGEN_KEYPAIRGENERATED:
+                if (requestedFnc == FNC_QuorumContext_GetXi)  return;
+                if (requestedFnc == FNC_QuorumContext_GetY)  return;
+                if (requestedFnc == FNC_QuorumContext_Encrypt)  return;                   
+                if (requestedFnc == FNC_QuorumContext_DecryptShare)  return;                   
+                if (requestedFnc == FNC_QuorumContext_Sign_RetrieveRandomRi) return;                   
+                if (requestedFnc == FNC_QuorumContext_Sign)  return;                   
+                if (requestedFnc == FNC_QuorumContext_Sign_GetCurrentCounter)  return;                   
 
-            case FNC_QuorumContext_Encrypt:
-                 if (currentState == STATE_KEYGEN_KEYPAIRGENERATED) break;
-                 ISOException.throwIt(Consts.SW_INCORRECTSTATE);
-            case FNC_QuorumContext_DecryptShare:
-                 if (currentState == STATE_KEYGEN_KEYPAIRGENERATED) break;
-                 ISOException.throwIt(Consts.SW_INCORRECTSTATE);
-            case FNC_QuorumContext_Sign_RetrieveRandomRi:
-                 if (currentState == STATE_KEYGEN_KEYPAIRGENERATED) break;
-                 ISOException.throwIt(Consts.SW_INCORRECTSTATE);
-            case FNC_QuorumContext_Sign:
-                 if (currentState == STATE_KEYGEN_KEYPAIRGENERATED) break;
-                 ISOException.throwIt(Consts.SW_INCORRECTSTATE);
-                
-                
+                ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+
             default:
-                ISOException.throwIt(Consts.SW_UNKNOWNFUNCTION);
+                ISOException.throwIt(Consts.SW_UNKNOWNSTATE);
        }
     }
 
+    
     private static short MakeStateTransition(short currentState, short newState) {
-        
+        // Check for functions which can be reached from any state
         switch (newState) {
+            case STATE_QUORUM_CLEARED: 
+                return newState;
+        }
+
+        // Check if transition from currentState -> newState is allowed
+        switch (currentState) {
             case STATE_QUORUM_CLEARED:
-                break; // quorum can can be cleared from any state
+                if (newState == STATE_QUORUM_INITIALIZED) return newState;
+                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION); // if reached, transition is not allowed
             case STATE_QUORUM_INITIALIZED:
-                if (currentState == STATE_QUORUM_CLEARED) break; 
+                if (newState == STATE_KEYGEN_CLEARED) return newState;
+                ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION); // if reached, transition is not allowed
             case STATE_KEYGEN_CLEARED:
-                break; // keypair can be cleared from any state
+                if (newState == STATE_KEYGEN_PRIVATEGENERATED) return newState;        
+                ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION); // if reached, transition is not allowed
             case STATE_KEYGEN_PRIVATEGENERATED:
-                if (currentState == STATE_KEYGEN_CLEARED) break;
+                if (newState == STATE_KEYGEN_COMMITMENTSCOLLECTED) return newState;
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
             case STATE_KEYGEN_COMMITMENTSCOLLECTED:
-                if (currentState == STATE_KEYGEN_PRIVATEGENERATED) break;
+                if (newState == STATE_KEYGEN_SHARESCOLLECTED) return newState;
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
             case STATE_KEYGEN_SHARESCOLLECTED:
-                if (currentState == STATE_KEYGEN_COMMITMENTSCOLLECTED) break;
+                if (newState == STATE_KEYGEN_KEYPAIRGENERATED) return newState;
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
             case STATE_KEYGEN_KEYPAIRGENERATED:
-                if (currentState == STATE_KEYGEN_SHARESCOLLECTED) break;
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
             default:
                 ISOException.throwIt(Consts.SW_UNKNOWNSTATE);
-                
-        }
+        }        
+        ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
         return newState;
     } 
 }
