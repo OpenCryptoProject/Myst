@@ -131,6 +131,7 @@ public class MPCTestClient {
             runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
             //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 1;
+            runCfg.numPlayers = 2;
             MPCProtocol_playground(runCfg);
         } catch (Exception e) {
                 e.printStackTrace();

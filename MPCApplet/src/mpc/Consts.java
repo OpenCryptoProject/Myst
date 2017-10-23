@@ -87,7 +87,11 @@ public class Consts {
     public static final short SW_FUNCTINNOTALLOWED              = (short) 0x700e;
     public static final short SW_INVALIDPACKETSTRUCTURE         = (short) 0x700d;
     public static final short SW_INVALIDQUORUMINDEX             = (short) 0x700e;
+    public static final short SW_INVALIDCOMMITMENTLENGTH        = (short) 0x700f;
+    public static final short SW_INVALIDMESSAGELENGTH           = (short) 0x7010;
+    public static final short SW_INVALIDCOUNTER                 = (short) 0x7011;
     
+            
     public static final short SIGN_COUNTER_LENGTH = (short) 2;
     
     

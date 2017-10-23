@@ -23,7 +23,13 @@ public class MPCApplet extends Applet {
     // TODO: Generate unique card key for signatures
     // TODO: Make unified structure of input data Sign(QuorumContextIndex | command apdu)_CardKey
     // TODO: Unify response codes
-
+    // TODO: Remove IS_BACKDOORED_EXAMPLE
+    // TODO: remove boolean variables
+    // TODO: consider unification of STATE_QUORUM_INITIALIZED and STATE_KEYGEN_CLEARED
+    // TODO: Rename Bignat variables
+    // TODO: Capture all exceptions in process() and reset state after several detected exceptions to prevent repeated attacks 
+    // TODO: encrypt result of DecryptShare under host public key
+    // TODO: unify all member attributes under m_xxx naming and camelCase
     
     public byte[] cardIDLong = null; // unique card ID generated during the applet install
     
@@ -53,6 +59,7 @@ public class MPCApplet extends Applet {
     public static void install(byte[] bArray, short bOffset, byte bLength) {
         // GP-compliant JavaCard applet registration
         if (bLength == 0) {
+            // Simulator provides no install params
             bIsSimulator = true;
             new MPCApplet().register();
         } else {
@@ -219,12 +226,12 @@ public class MPCApplet extends Applet {
     short GetOperationParamsOffset(byte operationCode, APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
         short dataLen = apdu.getIncomingLength();
-        // Check correctness of basic structire and expected operation
+        // Check correctness of basic structure and expected operation
         short offset = ISO7816.OFFSET_CDATA;
         if (apdubuf[offset] != Consts.TLV_TYPE_MPCINPUTPACKET) ISOException.throwIt(Consts.SW_INVALIDPACKETSTRUCTURE);
         offset++;
         short packetLen = Util.getShort(apdubuf, offset);
-        if (packetLen < 0 || packetLen > dataLen) ISOException.throwIt(Consts.SW_INVALIDPACKETSTRUCTURE);
+        if (packetLen < 1 || packetLen > dataLen) ISOException.throwIt(Consts.SW_INVALIDPACKETSTRUCTURE); // at least 1 byte of packet content required for operationCode
         offset += 2;
         if ((byte) apdubuf[offset] != (byte) operationCode) ISOException.throwIt(Consts.SW_INVALIDPACKETSTRUCTURE);
 
@@ -243,8 +250,6 @@ public class MPCApplet extends Applet {
         short numPlayers = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SETUPNEWQUORUM_NUMPLAYERS_OFFSET));
         short thisPlayerIndex = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SETUPNEWQUORUM_THISPLAYERINDEX_OFFSET));
         quorumCtx.SetupNew(numPlayers, thisPlayerIndex);
-
-        //quorumCtx.SetupNew((short) (apdubuf[ISO7816.OFFSET_P1] & 0xff), (short) (apdubuf[ISO7816.OFFSET_P2] & 0xff));
     }
     
     void Quorum_Remove(APDU apdu) {
@@ -331,7 +336,7 @@ public class MPCApplet extends Applet {
         offset++;
         Util.setShort(buffer, offset, (short) 2);
         offset += 2;
-        //Util.setShort(buffer, offset, CryptoObjects.EphimeralKey.getState());
+        //Util.setShort(buffer, offset, CryptoObjects.EphimeralKey.getState()); // TODO: read states from all quorums
         offset += 2;
 
         // Available memory
@@ -416,10 +421,9 @@ public class MPCApplet extends Applet {
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
         // Verify authorization
-        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GetShareCommitment);
-
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_RetrieveCommitment);
         // Obtain commitment for this card
-        short len = quorumCtx.GetShareCommitment(apdubuf, (short) 0);
+        short len = quorumCtx.RetrieveCommitment(apdubuf, (short) 0);
         // TODO: sign the commitment (if not signed later by host)
         
         apdu.setOutgoingAndSend((short) 0, len);
@@ -440,20 +444,19 @@ public class MPCApplet extends Applet {
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
         // Verify authorization
-        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_SetShareCommitment);
+        quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_StoreCommitment);
         
         // Store provided commitment
         short playerId = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTORECOMMITMENT_PLAYERID_OFFSET));
         short commitmentLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENTLENGTH_OFFSET));
-        quorumCtx.SetShareCommitment(playerId, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENT_OFFSET), commitmentLen);
+        quorumCtx.StoreCommitment(playerId, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_KEYGENSTORECOMMITMENT_COMMITMENT_OFFSET), commitmentLen);
     }
     
     /**
      * Another round of exchanges starts (KeyGen_RetrievePublicKey and KeyGen_StorePublicKey), this time for the shares of Yagg
      * The commitment exchange round (KeyGen_RetrieveCommitment and KeyGen_StoreCommitment) is of uttermost
-     * importance as it forces the participants to commit to a share of Yagg,
-     * before receiving the shares of others. This prevents attacks where an 
-     * adversary first collects the shares of others, and then crafts its share so as to bias the final pair,
+     * importance as it forces the participants to commit to a share of Yagg, before receiving the shares of others. 
+     * This prevents attacks where an adversary first collects the shares of others, and then crafts its share so as to bias the final pair,
      * towards a secret key they know.
      * @param apdu 
      */
@@ -506,13 +509,10 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
-
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_GetY);
-        
         // Retrieve aggregated pubic key
         short len = quorumCtx.GetY().getW(apdubuf, (short) 0);
-        
         // TODO: sign output data (if not signed later by host)
 
         apdu.setOutgoingAndSend((short) 0, len);
@@ -592,7 +592,7 @@ public class MPCApplet extends Applet {
     }
     
     /**
-     * All KeyGen_xxx must be executed before
+     * Distributed data decryption (Algorithm 4.5). All KeyGen_xxx must be executed before.
      * @param apdu 
      */
     void DecryptData(APDU apdu) {
@@ -600,22 +600,19 @@ public class MPCApplet extends Applet {
         short paramsOffset = GetOperationParamsOffset(Consts.INS_DECRYPT, apdu);
         // Parse incoming apdu to obtain target quorum context
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
-        // Verify authorization
+        // Verify authorization - is caller allowed to ask for decryption? 
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_DecryptShare);
 
         short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_DECRYPT_DATALENGTH_OFFSET));
         dataLen = quorumCtx.DecryptShare(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_DECRYPT_DATA_OFFSET), dataLen, apdubuf);
+        // TODO: encrypt result under host public key and sign by card's key
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }
     
     /**
-     * Host queries the ICs for random group elements Ri j , where i is the id
-     * of the IC and j an increasing request counter. Once such a request is
-     * received, the IC verifies that the host is authorized to submit such a
-     * request and then applies the keyed pseudorandom function on the index j
-     * to compute ri, j = PRFs (j). The IC then uses ri, j to generate a
-     * group element (EC Point) Ri j = ri, j · G, which is then returned to
-     * the host.
+     * Part of distributed signature scheme (Algorithm 4.7). All KeyGen_xxx must be executed
+     * before. 
+     * @apdu input apdu
      */
     void Sign_RetrieveRandomRi(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
@@ -624,8 +621,6 @@ public class MPCApplet extends Applet {
         QuorumContext quorumCtx = GetTargetQuorumContext(apdubuf, paramsOffset);
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi);
-        
-        // TODO: Check for strictly increasing request counter
         
         short counter = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGNRETRIEVERI_COUNTER_OFFSET));
         short dataLen = quorumCtx.Sign_RetrieveRandomRi(counter, apdubuf);

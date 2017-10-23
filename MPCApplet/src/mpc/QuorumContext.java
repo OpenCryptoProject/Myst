@@ -1,7 +1,6 @@
 package mpc;
 
 import javacard.framework.APDU;
-import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
@@ -28,6 +27,7 @@ public class QuorumContext {
             
     // Signing
     public Bignat signature_counter = null;
+    public short signature_counter_short = 0;
     public byte[] signature_secret_seed = null; 
 
     // Distributed keypair generation share
@@ -90,7 +90,7 @@ public class QuorumContext {
             Util.arrayFillNonAtomic(signature_secret_seed, (short) 0, Consts.SHARE_BASIC_SIZE, (byte) 0x33);
         }
 
-        // TODO: store and setup user authorization keys
+        // TODO: store and setup user authorization keys (if provided)
         
         // Set state
         state.MakeStateTransition(StateModel.STATE_QUORUM_INITIALIZED);
@@ -112,8 +112,8 @@ public class QuorumContext {
     }
 
     /**
-     * Initialize new quorum context and generates initial keypair for this card. 
-     * Sets quorum size (numPlayers), id of this card. Prepares necessary initial structires
+     * Initialize new quorum context and generates initial keypair for this card (Algorithm 4.1). 
+     * Sets quorum size (numPlayers), id of this card. Prepares necessary initial structures.
      * @param numPlayers number of participants in this quorum
      * @param cardID participant index assigned to this card 
      * @param bPrepareDecryption if true, speedup engines for fast decryption are pre-prepared
@@ -134,17 +134,17 @@ public class QuorumContext {
             GenerateExampleBackdooredKeyPair();
         } else {
             // Legitimate generation of key as per protocol by non-compromised participants
-            ((ECPrivateKey) pair.getPrivate()).getS(x_i_Bn, (short) 0);
+            ((ECPrivateKey) pair.getPrivate()).getS(x_i_Bn, (short) 0); // Algorithm 4.1, step 1.
         }
 
         // Add this card share into (future) aggregate key
-        cryptoOps.placeholder.ScalarMultiplication(cryptoOps.GenPoint, x_i_Bn, this_card_Ys); // yG
+        cryptoOps.placeholder.ScalarMultiplication(cryptoOps.GenPoint, x_i_Bn, this_card_Ys); // yG Algorithm 4.1, step 2.
         Y_EC_onTheFly.setW(this_card_Ys, (short) 0, (short) this_card_Ys.length);
         Y_EC_onTheFly_shares_count++;   // share for this card is included
         num_commitments_count = 1;      // share for this card is included
         // Update stored x_i properties
         players[CARD_INDEX_THIS].bYsValid = true;
-        // Compute commitment
+        // Compute commitment, Algorithm 4.1, step 3.
         cryptoOps.md.reset();
         cryptoOps.md.doFinal(this_card_Ys, (short) 0, (short) this_card_Ys.length, players[CARD_INDEX_THIS].YsCommitment, (short) 0);
         players[CARD_INDEX_THIS].bYsCommitmentValid = true;
@@ -183,8 +183,8 @@ public class QuorumContext {
         pub.setW(cryptoOps.tmp_arr, (short) 0, (short) 65);
     }
 
-    public short GetShareCommitment(byte[] array, short offset) {
-        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_GetShareCommitment);
+    public short RetrieveCommitment(byte[] array, short offset) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_RetrieveCommitment);
         if (players[CARD_INDEX_THIS].bYsCommitmentValid) {
             Util.arrayCopyNonAtomic(players[CARD_INDEX_THIS].YsCommitment, (short) 0, array, offset, (short) players[CARD_INDEX_THIS].YsCommitment.length);
             return (short) players[CARD_INDEX_THIS].YsCommitment.length;
@@ -195,11 +195,14 @@ public class QuorumContext {
     }
 
     // State 0
-    public void SetShareCommitment(short id, byte[] commitment, short commitmentOffset, short commitmentLength) {
-        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetShareCommitment);
+    public void StoreCommitment(short id, byte[] commitment, short commitmentOffset, short commitmentLength) {
+        state.CheckAllowedFunction(StateModel.FNC_QuorumContext_StoreCommitment);
 
         if (id < 0 || id == CARD_INDEX_THIS || id >= NUM_PLAYERS) {
             ISOException.throwIt(Consts.SW_INVALIDPLAYERINDEX);
+        }
+        if (commitmentLength != players[id].YsCommitment.length) {
+            ISOException.throwIt(Consts.SW_INVALIDCOMMITMENTLENGTH);
         }
         if (players[id].bYsCommitmentValid) {
             // commitment already stored
@@ -228,16 +231,15 @@ public class QuorumContext {
     public void SetYs(short id, byte[] Y, short YOffset, short YLength) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_SetYs);
 
+        if (id < 0 || id == CARD_INDEX_THIS || id >= NUM_PLAYERS) {
+            ISOException.throwIt(Consts.SW_INVALIDPLAYERINDEX);
+        }
         if (players[id].bYsValid) {
             ISOException.throwIt(Consts.SW_SHAREALREADYSTORED);
         }
         if (id == CARD_INDEX_THIS) {
             ISOException.throwIt(Consts.SW_INVALIDPLAYERINDEX);
         }
-        if (YLength != Consts.PUBKEY_YS_SHARE_SIZE) {
-            ISOException.throwIt(Consts.SW_INVALIDYSHARE);
-        }
-        
         // Verify against previously stored hash
         // TODO: if commitment check fails, terminate protocol and reset to intial state (and return error)
         if (!players[id].bYsCommitmentValid) {
@@ -334,6 +336,7 @@ public class QuorumContext {
         Y_EC_onTheFly_shares_count = 0;
         num_commitments_count = 0;
         signature_counter.zero();
+        signature_counter_short = 0;
 
         state.MakeStateTransition(StateModel.STATE_QUORUM_CLEARED);
     }
@@ -351,7 +354,12 @@ public class QuorumContext {
     
     public short Sign_RetrieveRandomRi(short counter, byte[] buffer) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign_RetrieveRandomRi);
-        return cryptoOps.Gen_R_i(cryptoOps.shortToByteArray(counter), signature_secret_seed, buffer);
+        // Counter must be strictly increasing, check
+        if (counter <= signature_counter_short) {
+            ISOException.throwIt(Consts.SW_INVALIDCOUNTER);
+        }
+        signature_counter_short = counter;
+        return cryptoOps.Gen_R_i(cryptoOps.shortToByteArray(signature_counter_short), signature_secret_seed, buffer);
     }
     
     public short Sign(Bignat i, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset) {

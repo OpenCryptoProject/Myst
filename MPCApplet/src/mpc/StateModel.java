@@ -24,9 +24,9 @@ public class StateModel {
     public static final short FNC_QuorumContext_GetYi                   = (short) 0xf002;
     public static final short FNC_QuorumContext_Invalidate              = (short) 0xf003;
     public static final short FNC_QuorumContext_GetY                    = (short) 0xf004;
-    public static final short FNC_QuorumContext_GetShareCommitment      = (short) 0xf005;
+    public static final short FNC_QuorumContext_RetrieveCommitment      = (short) 0xf005;
     public static final short FNC_QuorumContext_SetYs                   = (short) 0xf006;
-    public static final short FNC_QuorumContext_SetShareCommitment      = (short) 0xf007;
+    public static final short FNC_QuorumContext_StoreCommitment      = (short) 0xf007;
     public static final short FNC_QuorumContext_GenerateExampleBackdooredKeyPair = (short) 0xf008;
     public static final short FNC_QuorumContext_InitAndGenerateKeyPair  = (short) 0xf009;
     public static final short FNC_QuorumContext_GetState                = (short) 0xf00a;
@@ -83,8 +83,8 @@ public class StateModel {
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED);
 
             case STATE_KEYGEN_PRIVATEGENERATED:
-                if (requestedFnc == FNC_QuorumContext_GetShareCommitment) return;      
-                if (requestedFnc == FNC_QuorumContext_SetShareCommitment) return;      
+                if (requestedFnc == FNC_QuorumContext_RetrieveCommitment) return;      
+                if (requestedFnc == FNC_QuorumContext_StoreCommitment) return;      
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
 
             case STATE_KEYGEN_COMMITMENTSCOLLECTED:

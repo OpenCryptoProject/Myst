@@ -155,21 +155,36 @@ public class MPCCryptoOps {
         
         m_shortByteArray = JCSystem.makeTransientByteArray((short) 2, JCSystem.MEMORY_TYPE_TRANSIENT_DESELECT);
     }
-    
-    public short Encrypt(QuorumContext quorumCtx, byte[] plaintext_arr, short plaintext_arr_offset, short plaintext_arr_len, byte[] outArray) {
+    /**
+     * Encrypts provided plaintext data with aggregated public key (Algorithm 4.4).
+     * For encryption, we use the Elliptic Curve ElGamal scheme. This operation does not use the secret key, and can be
+     * performed directly on the host, or remotely by any party holding the public key, hence there is no need to perform 
+     * it in a distributed manner. 
+     * @param quorumCtx quorum context
+     * @param plaintextArray input buffer with message encoded as an element of the group G
+     * @param plaintextArrayOffset start offset within plaintext_arr 
+     * @param plaintextArrayOffsetLength length of data 
+     * @param outArray output array with encrypted data
+     * @return length of output data
+     */
+    public short Encrypt(QuorumContext quorumCtx, byte[] plaintextArray, short plaintextArrayOffset, short plaintextArrayOffsetLength, byte[] outArray) {
        
         short outOffset = (short) 0;
         
-        // TODO: check input data validity
+        // Check input data validity
+        if (plaintextArrayOffsetLength != Consts.PUBKEY_YS_SHARE_SIZE) {
+            ISOException.throwIt(Consts.SW_INVALIDMESSAGELENGTH);
+        }
+        // TODO: Check if message is element of the group 
         
         PM.check(PM.TRAP_CRYPTOPS_ENCRYPT_1);
 
-        // Encrypt
+        // Generate random 
         randomData.generateData(y_Bn, (short) 0, (short) y_Bn.length); //4ms
         
         PM.check(PM.TRAP_CRYPTOPS_ENCRYPT_2);
 
-        // Preset KeyAgreement - we will use it twice so set it only once and reuse // 60ms
+        // Optimization: Pre-initialize KeyAgreement - we will use it twice so set it only once and reuse // 60ms
         if (ECPointBase.ECMultiplHelper != null) { // Use prepared engine - cards with native support for EC
             ECPointBase.disposable_priv.setS(y_Bn, (short) 0, (short) y_Bn.length);
             ECPointBase.ECMultiplHelper.init(ECPointBase.disposable_priv); // Set multiplier        
@@ -179,7 +194,6 @@ public class MPCCryptoOps {
         
         // Gen c2 first as we will reuse same output array
         // c2 = m + (xG) + (yG) = y(xG) + m = yPub + m
-        //ECPointBase.ScalarMultiplication(CryptoObjects.KeyPair.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
         if (ECPointBase.ECMultiplHelper != null) { 
             // Use prepared engine - cards with native support for EC
             c2_EC.ScalarMultiplication(quorumCtx.GetY(), ECPointBase.ECMultiplHelper, c2_EC); // y(xG) //170ms
@@ -191,7 +205,7 @@ public class MPCCryptoOps {
         
         PM.check(PM.TRAP_CRYPTOPS_ENCRYPT_4);
 
-        ECPointBase.ECPointAddition(c2_EC, plaintext_arr, plaintext_arr_offset, c2_EC); // +m //150ms
+        ECPointBase.ECPointAddition(c2_EC, plaintextArray, plaintextArrayOffset, c2_EC); // +m //150ms
         
         PM.check(PM.TRAP_CRYPTOPS_ENCRYPT_5);
 
@@ -211,23 +225,25 @@ public class MPCCryptoOps {
         return outOffset;
     }
 
-    // Share is -x_ic1
-    public short DecryptShare(QuorumContext quorumCtx, byte[] c1_c2_arr, short c1_c2_arr_offset, byte[] outputArray) {
+    /**
+     * Decrypts provided ciphertext with participant's share (Algorithm 4.5).
+     * @param quorumCtx quorum context
+     * @param ciphertextArray input buffer with ciphertext 
+     * @param ciphertextArrayOffset start offset within ciphertext buffer
+     * @param outputArray output array with decrypted share
+     * @return length of decrypted share 
+     */
+    public short DecryptShare(QuorumContext quorumCtx, byte[] ciphertextArray, short ciphertextArrayOffset, byte[] outputArray) {
 
         PM.check(PM.TRAP_CRYPTOPS_DECRYPTSHARE_1);
 
         short len;
         if (ECPointBase.ECMultiplHelperDecrypt != null) {
-            // Use prepared engine - cards with native support for EC
-            /* is already set from Reset method
-             byte[] point = CryptoObjects.KeyPair.Getxi();
-             EC_Utils.disposable_privDecrypt.setS(point, (short) 0, (short) point.length);
-             EC_Utils.ECMultiplHelperDecrypt.init(EC_Utils.disposable_privDecrypt); // Set multiplier
-             */
-            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, ECPointBase.ECMultiplHelperDecrypt, outputArray); // -xyG
+            // Use prepared engine - cards with native support for EC. Already set from Reset method with quorumCtx.GetXi()
+            len = placeholder.ScalarMultiplication(ciphertextArray, ciphertextArrayOffset, Consts.SHARE_DOUBLE_SIZE_CARRY, ECPointBase.ECMultiplHelperDecrypt, outputArray); // -xyG
         } else {
             // Use this with JCMathLib
-            len = placeholder.ScalarMultiplication(c1_c2_arr, c1_c2_arr_offset, Consts.SHARE_DOUBLE_SIZE_CARRY, quorumCtx.GetXi(), outputArray); // -xyG
+            len = placeholder.ScalarMultiplication(ciphertextArray, ciphertextArrayOffset, Consts.SHARE_DOUBLE_SIZE_CARRY, quorumCtx.GetXi(), outputArray); // -xyG
         }        
 
         PM.check(PM.TRAP_CRYPTOPS_DECRYPTSHARE_2);
@@ -255,14 +271,14 @@ public class MPCCryptoOps {
      (byte) 0x7D, (byte) 0xB8, (byte) 0x45, (byte) 0x28, (byte) 0xC6, (byte) 0x1B, (byte) 0xC6, (byte) 0xD0};
     */
 
-    public short Sign(QuorumContext quorumCtx, Bignat i, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset) {
+    public short Sign(QuorumContext quorumCtx, Bignat counter, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset) {
         
         PM.check(PM.TRAP_CRYPTOPS_SIGN_1);
 
         // 1. Check counter
-        if (!MPCApplet.bIsSimulator) {
-            if (quorumCtx.signature_counter.lesser(i)==false) {
-                ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
+        if (!MPCApplet.bIsSimulator) { // Don't perform counter checks on simulator to enable for bogus test cases
+            if (quorumCtx.signature_counter.lesser(counter) == false) {
+                ISOException.throwIt(Consts.SW_INVALIDCOUNTER);
             }
         }
 
@@ -277,7 +293,7 @@ public class MPCCryptoOps {
         PM.check(PM.TRAP_CRYPTOPS_SIGN_3); // +15ms
         // s
         //s_Bn.zero();
-        s_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, PRF(i, quorumCtx.signature_secret_seed), (short) 0); // s
+        s_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, PRF(counter, quorumCtx.signature_secret_seed), (short) 0); // s
 
 
         PM.check(PM.TRAP_CRYPTOPS_SIGN_4); 
@@ -331,7 +347,7 @@ public class MPCCryptoOps {
 
         PM.check(PM.TRAP_CRYPTOPS_SIGN_10);
 
-	quorumCtx.signature_counter.copy(i);
+	quorumCtx.signature_counter.copy(counter);
 		
         // Return result
         short outOffset = outputBaseOffset;
@@ -350,10 +366,9 @@ public class MPCCryptoOps {
         return PRF(i.as_byte_array(), secret_arr);
     }
    
-    public byte[] PRF(byte[] i, byte[] secret_arr) {
-        //Util.arrayFillNonAtomic(prf_result, (short) 0, (short) prf_result.length, (byte) 0); // use when MessageDigest is shorter than SHARE_SIZE_32
+    public byte[] PRF(byte[] counter, byte[] secret_arr) {
         md.reset();
-        md.update(i, (short) 0, (short) i.length);
+        md.update(counter, (short) 0, (short) counter.length);
         md.doFinal(secret_arr, (short) 0, (short) secret_arr.length, prf_result, (short) 0);
         return prf_result;
     }
@@ -364,12 +379,28 @@ public class MPCCryptoOps {
     }
     
     public boolean VerifyYsCommitment(byte[] Ys, short YsOffset, short YsLength, byte[] commitment) {
+        if (YsLength != Consts.PUBKEY_YS_SHARE_SIZE) {
+            ISOException.throwIt(Consts.SW_INVALIDYSHARE);
+        }
         md.reset();
         md.doFinal(Ys, YsOffset, YsLength, tmp_arr, (short) 0);
         return Util.arrayCompare(tmp_arr, (short) 0, commitment, (short) 0, Consts.SHARE_BASIC_SIZE) == 0;
     }
     
-    public short Gen_R_i(byte[] i, byte[] secret_arr, byte[] output_arr) {
-        return placeholder.ScalarMultiplication(GenPoint, PRF(i, secret_arr), output_arr); // yG 
+    /**
+     * Part of novel multi-signature scheme, based on Schnorr signature (Algorithm 4.7). Host queries the
+     * ICs for random group elements Rij, where i is the id of the IC and j an
+     * increasing request counter. Once such a request is 
+     * received, the IC verifies that the host is authorized to submit such a
+     * request and then applies the keyed pseudorandom function on the index j
+     * to compute ri, j = PRFs (j). The IC then uses ri, j to generate a group
+     * element (EC Point) Ri j = ri, j · G, which is then returned to the host.
+     * @param counter strictly incremental counter (j)
+     * @param cardSecretArray card's secret signature seed (ri)
+     * @param outputArray buffer for signed share
+     * @return length of signed share
+     */
+    public short Gen_R_i(byte[] counter, byte[] cardSecretArray, byte[] outputArray) {
+        return placeholder.ScalarMultiplication(GenPoint, PRF(counter, cardSecretArray), outputArray); // yG 
     }
 }
