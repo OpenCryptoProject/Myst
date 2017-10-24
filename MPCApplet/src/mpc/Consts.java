@@ -70,26 +70,27 @@ public class Consts {
     
     // Custom error response codes
     public static final short SW_SUCCESS                        = (short) 0x9000;
-    public static final short SW_TOOMANYPLAYERS                 = (short) 0x7000;
-    public static final short SW_INCORRECTSTATE                 = (short) 0x7001;
-    public static final short SW_INVALIDCOMMITMENT              = (short) 0x7002;
-    public static final short SW_INVALIDYSHARE                  = (short) 0x7003;
-    public static final short SW_SHAREALREADYSTORED             = (short) 0x7004;
-    public static final short SW_CANTALLOCATE_BIGNAT            = (short) 0x7005;
-    public static final short SW_INVALIDPOINTTYPE               = (short) 0x7006;
-    public static final short SW_NOTSUPPORTEDYET                = (short) 0x7007;
-    public static final short SW_INTERNALSTATEMISMATCH          = (short) 0x7008;
-    public static final short SW_INVALIDPLAYERINDEX             = (short) 0x7009;
-    public static final short SW_UNKNOWNSTATE                   = (short) 0x700a;
-    public static final short SW_UNKNOWNFUNCTION                = (short) 0x700b;
-    public static final short SW_COMMITMENTALREADYSTORED        = (short) 0x700c;
-    public static final short SW_INCORRECTSTATETRANSITION       = (short) 0x700d;
-    public static final short SW_FUNCTINNOTALLOWED              = (short) 0x700e;
-    public static final short SW_INVALIDPACKETSTRUCTURE         = (short) 0x700d;
-    public static final short SW_INVALIDQUORUMINDEX             = (short) 0x700e;
-    public static final short SW_INVALIDCOMMITMENTLENGTH        = (short) 0x700f;
-    public static final short SW_INVALIDMESSAGELENGTH           = (short) 0x7010;
-    public static final short SW_INVALIDCOUNTER                 = (short) 0x7011;
+    public static final short SW_TOOMANYPLAYERS                 = (short) 0x8000;
+    public static final short SW_INCORRECTSTATE                 = (short) 0x8001;
+    public static final short SW_INVALIDCOMMITMENT              = (short) 0x8002;
+    public static final short SW_INVALIDYSHARE                  = (short) 0x8003;
+    public static final short SW_SHAREALREADYSTORED             = (short) 0x8004;
+    public static final short SW_CANTALLOCATE_BIGNAT            = (short) 0x8005;
+    public static final short SW_INVALIDPOINTTYPE               = (short) 0x8006;
+    public static final short SW_NOTSUPPORTEDYET                = (short) 0x8007;
+    public static final short SW_INTERNALSTATEMISMATCH          = (short) 0x8008;
+    public static final short SW_INVALIDPLAYERINDEX             = (short) 0x8009;
+    public static final short SW_UNKNOWNSTATE                   = (short) 0x800a;
+    public static final short SW_UNKNOWNFUNCTION                = (short) 0x800b;
+    public static final short SW_COMMITMENTALREADYSTORED        = (short) 0x800c;
+    public static final short SW_INCORRECTSTATETRANSITION       = (short) 0x800d;
+    public static final short SW_FUNCTINNOTALLOWED              = (short) 0x800e;
+    public static final short SW_INVALIDPACKETSTRUCTURE         = (short) 0x800d;
+    public static final short SW_INVALIDQUORUMINDEX             = (short) 0x800e;
+    public static final short SW_INVALIDCOMMITMENTLENGTH        = (short) 0x800f;
+    public static final short SW_INVALIDMESSAGELENGTH           = (short) 0x8010;
+    public static final short SW_INVALIDCOUNTER                 = (short) 0x8011;
+    public static final short SW_INCORRECTJCMATHLIBSETTINGS     = (short) 0x8012;
     
             
     public static final short SIGN_COUNTER_LENGTH = (short) 2;
