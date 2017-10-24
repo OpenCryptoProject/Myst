@@ -173,61 +173,6 @@ public class ECPointBase implements javacard.security.ECKey {
         return (short) -1;
     }
     
-    
-    /* unused 20170811    
-    //static byte[] uncompressed_arr = null;
-     //static byte[] y_uncompressed_arr = null;
-     //static Bignat y_Bn = null;
-     //static Bignat p_Bn = null;
-     //static Bignat _y_Bn = null;
- 
-    //uncompressed_arr = JCSystem.makeTransientByteArray(Consts.SHARE_SIZE_CARRY_65, JCSystem.MEMORY_TYPE_TRANSIENT_RESET);
-     y_Bn = new Bignat(Consts.SHARE_SIZE_32, false);
-     p_Bn = new Bignat(Consts.SHARE_SIZE_32, false);
-     _y_Bn = new Bignat(Consts.SHARE_SIZE_32, false);
-
-    public static void ECPointNegation(ECPointBase Point, ECPointBase ResultECPoint) {
-     Point.getW(uncompressed_arr, (short) 0);
-     ECPointNegation(uncompressed_arr, (short) 0, ResultECPoint);
-     }
-
-     public static void ECPointNegation(byte[] Point, short PointOffset, ECPointBase ResultECPoint) {
-     y_Bn.from_byte_array(Consts.SHARE_SIZE_32, (short) 0, Point, (short) (PointOffset + 33));
-
-     p_Bn.from_byte_array((short) SecP256r1.p.length, (short) 0, SecP256r1.p, (short) 0);
-
-     // ECPointNegation
-     if (y_Bn.lesser(p_Bn) == true) { // y<p
-     _y_Bn.copy(p_Bn);
-     _y_Bn.times_minus(y_Bn, (short) 0, (short) 1);
-     } else {// y>p
-     _y_Bn.copy(y_Bn);
-     _y_Bn.times_minus(p_Bn, (short) 0, (short) 1);
-     }
-
-     _y_Bn.to_byte_array(Consts.SHARE_SIZE_CARRY_65, (short) 0, Point, (short) (PointOffset + (short) (Consts.SHARE_SIZE_32 + 1)));
-
-     ResultECPoint.setW(Point, PointOffset, Consts.SHARE_SIZE_CARRY_65);
-     }
-    
-     /*  20170811 unused      
-     public static ECPointWrapper ECPointSubtraction(ECPointWrapper PointA, ECPointWrapper PointB) {
-
-     // inverse PointB
-     ECPointWrapper InversePointB = ECCurve.createPoint(SecP256r1.KEY_LENGTH);
-     EC_Utils.initializeECPoint(InversePointB);
-     ECPointNegation(PointB, InversePointB);
-
-     // Add the two points
-     ECPointWrapper ResultECPoint = ECCurve.createPoint( SecP256r1.KEY_LENGTH);
-     EC_Utils.initializeECPoint(ResultECPoint);
-
-     ECPointAddition(PointA, InversePointB, ResultECPoint);
-
-     return ResultECPoint;
-     }
-     */
-
     public void copyDomainParametersFrom(ECKey eckey) throws CryptoException {
         ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
     }

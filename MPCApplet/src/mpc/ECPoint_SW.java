@@ -88,7 +88,7 @@ public class ECPoint_SW extends mpc.ECPointBase {
     
     public short ScalarMultiplication(ECPointBase BasePoint, byte[] value, byte[] result) {
         short len = BasePoint.getW(TempBuffer65, (short) 0);
-        ///* in case BasePoint is different from G, then update of curve is necessary (not in MPC)
+        ///* in case BasePoint is different from G, then update of curve is necessary (not used in MPC)
         fnc_ScalarMultiplication_resultPoint.getCurve().setG(TempBuffer65, (short) 0, len);
         fnc_ScalarMultiplication_resultPoint.updatePointObjects(); // After changing curve parameters, internal objects needs to be actualized
         /**/
