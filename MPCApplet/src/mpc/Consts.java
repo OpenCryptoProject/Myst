@@ -15,9 +15,9 @@ public class Consts {
     // Card Management
 
     public final static byte INS_QUORUM_SETUP_NEW		= (byte) 0x01;
-    public final static byte INS_PERSONALIZE_GETCARDINFO           = (byte) 0x02;
+    public final static byte INS_PERSONALIZE_GETCARDINFO        = (byte) 0x02;
     public final static byte INS_QUORUM_RESET                   = (byte) 0x03;
-    public final static byte INS_PERF_SETSTOP                    = (byte) 0x04;
+    public final static byte INS_PERF_SETSTOP                   = (byte) 0x04;
     public final static byte INS_SET_BACKDOORED_EXAMPLE         = (byte) 0x05;
     public final static byte INS_TESTECC                        = (byte) 0x06;
     public final static byte INS_QUORUM_REMOVE                  = (byte) 0x07;
@@ -148,6 +148,7 @@ public class Consts {
     public final static byte TLV_TYPE_GITCOMMIT         = (byte) 0x45;
     public final static byte TLV_TYPE_EXAMPLEBACKDOOR = (byte) 0x46;
     public final static byte TLV_TYPE_MPCINPUTPACKET = (byte) 0x47;
+    public final static byte TLV_TYPE_CARDINDEX = (byte) 0x48;
 
     // Lengths
     public static final byte CARD_ID_LONG_LENGTH = (byte) 16;   // Length of unique card ID generated during applet install

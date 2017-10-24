@@ -1,5 +1,7 @@
 package mpcclient;
 
+import mpctestclient.MPCTestClient;
+import mpctestclient.MPCRunConfig;
 import mpc.Consts;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
@@ -63,7 +65,7 @@ public class MPCProtocolTests {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = Consts.MAX_NUM_PLAYERS;
         // Execute once
-        mpcclient.MPCTestClient.TestMPCProtocol_v20170520(runCfg);
+        mpctestclient.MPCTestClient.TestMPCProtocol_v20170520(runCfg);
     }
     
     
