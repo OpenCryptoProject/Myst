@@ -1,14 +1,11 @@
 package mpc;
 
-
 import javacard.security.MessageDigest;
-
-import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.RandomData;
-
+import mpc.jcmathlib.*;
 /**
  *
  * @author Vasilios Mavroudis and Petr Svenda
@@ -133,7 +130,7 @@ public class MPCCryptoOps {
         modulo_Bn = new Bignat(Consts.SHARE_BASIC_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         modulo_Bn.from_byte_array((short) SecP256r1.r.length, (short) 0, SecP256r1.r, (short) 0);
         
-        aBn = new mpc.Bignat(Consts.SHARE_DOUBLE_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
+        aBn = new Bignat(Consts.SHARE_DOUBLE_SIZE, JCSystem.MEMORY_TYPE_TRANSIENT_RESET, eccfg.bnh);
         
         aBn.set_from_byte_array((short) (aBn.length() - (short) r_for_BigInteger.length), r_for_BigInteger, (short) 0, (short) r_for_BigInteger.length);
         
@@ -271,22 +268,48 @@ public class MPCCryptoOps {
      (byte) 0x7D, (byte) 0xB8, (byte) 0x45, (byte) 0x28, (byte) 0xC6, (byte) 0x1B, (byte) 0xC6, (byte) 0xD0};
     */
 
-    public short Sign(QuorumContext quorumCtx, Bignat counter, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset) {
+    /**
+     * The signing phase starts with the host sending a Sign request to all ICs (Algorithm 4.7). 
+     * Such a request includes the hash of the plaintext Hash(m), the index of
+     * the round counter j, and the random group element R_n corresponding to the round.
+     * Each IC then first verifies that the host has the authorization to submit
+     * queries and that the specific counter j has not been already used. The latter
+     * check on j is to prevent attacks that aim to either leak the private key
+     * or to allow the adversary to craft new signatures from existing ones. If
+     * these checks are successful, the IC executes Algorithm 4.7 and generates
+     * its signature share. The signature share (σi, j , ϵj ) is then sent to
+     * the host.
+     * 
+     * @param quorumCtx current quorum context
+     * @param counter strictly incremental counter
+     * @param plaintextAndRnArray array with message and R_n
+     * @param plaintextOffset start offset inside plaintext array
+     * @param plaintextLength lengths of data inside plaintext array
+     * @param outputArray
+     * @param outputArrayOffset
+     * @return 
+     */
+    public short Sign(QuorumContext quorumCtx, Bignat counter, byte[] plaintextAndRnArray, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputArrayOffset) {
         
         PM.check(PM.TRAP_CRYPTOPS_SIGN_1);
 
-        // 1. Check counter
+        // Check counter - must not repeat
         if (!MPCApplet.bIsSimulator) { // Don't perform counter checks on simulator to enable for bogus test cases
             if (quorumCtx.signature_counter.lesser(counter) == false) {
                 ISOException.throwIt(Consts.SW_INVALIDCOUNTER);
             }
         }
 
+        if (plaintextLength != (short) (Consts.SHARE_DOUBLE_SIZE_CARRY + Consts.SHARE_DOUBLE_SIZE_CARRY)) {
+            ISOException.throwIt(Consts.SW_INVALIDMESSAGELENGTH);
+        }
+        
         PM.check(PM.TRAP_CRYPTOPS_SIGN_2); //+8ms 
+        
     	// 2. Compute e = H(M||R_n)
         md.reset();
-        md.update(Rn_plaintext_arr, plaintextOffset, Consts.SHARE_DOUBLE_SIZE_CARRY); // Hash plaintext
-        md.doFinal(Rn_plaintext_arr, (short) (plaintextOffset+Consts.SHARE_DOUBLE_SIZE_CARRY), Consts.SHARE_DOUBLE_SIZE_CARRY, e_arr, (short) 0); //Hash R_n
+        md.update(plaintextAndRnArray, plaintextOffset, Consts.SHARE_DOUBLE_SIZE_CARRY); // hash plaintext
+        md.doFinal(plaintextAndRnArray, (short) (plaintextOffset + Consts.SHARE_DOUBLE_SIZE_CARRY), Consts.SHARE_DOUBLE_SIZE_CARRY, e_arr, (short) 0); //Hash R_n
 	e_Bn.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, e_arr, (short) 0);
 
 		
@@ -350,12 +373,12 @@ public class MPCCryptoOps {
 	quorumCtx.signature_counter.copy(counter);
 		
         // Return result
-        short outOffset = outputBaseOffset;
+        short outOffset = outputArrayOffset;
         Util.arrayCopyNonAtomic(s_Bn.as_byte_array(), (short) 0, outputArray, outOffset, (short) s_Bn.as_byte_array().length);
         outOffset += (short) s_Bn.as_byte_array().length;
         Util.arrayCopyNonAtomic(e_Bn.as_byte_array(), (short) 0, outputArray, (short) s_Bn.as_byte_array().length, (short) e_Bn.as_byte_array().length);
         outOffset += (short) e_Bn.as_byte_array().length;
-        return (short) (outOffset - outputBaseOffset);
+        return (short) (outOffset - outputArrayOffset);
     }
     
     public byte[] PRF(short i, byte[] secret_arr) {

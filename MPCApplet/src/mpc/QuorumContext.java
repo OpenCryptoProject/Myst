@@ -7,7 +7,7 @@ import javacard.framework.Util;
 import javacard.security.ECPrivateKey;
 import javacard.security.ECPublicKey;
 import javacard.security.KeyPair;
-
+import mpc.jcmathlib.*;
 /**
  *
  * @author Vasilios Mavroudis and Petr Svenda
@@ -362,9 +362,9 @@ public class QuorumContext {
         return cryptoOps.Gen_R_i(cryptoOps.shortToByteArray(signature_counter_short), signature_secret_seed, buffer);
     }
     
-    public short Sign(Bignat i, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset) {
+    public short Sign(Bignat counter, byte[] Rn_plaintext_arr, short plaintextOffset, short plaintextLength, byte[] outputArray, short outputBaseOffset) {
         state.CheckAllowedFunction(StateModel.FNC_QuorumContext_Sign);
-        return cryptoOps.Sign(this, i, Rn_plaintext_arr, plaintextOffset, plaintextLength, outputArray, outputBaseOffset);   
+        return cryptoOps.Sign(this, counter, Rn_plaintext_arr, plaintextOffset, plaintextLength, outputArray, outputBaseOffset);   
     }
     
     public short Sign_GetCurrentCounter(byte[] outputArray, short outputBaseOffset) {

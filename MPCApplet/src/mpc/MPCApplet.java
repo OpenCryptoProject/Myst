@@ -7,6 +7,7 @@ import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 
+import mpc.jcmathlib.*;
 /**
  *
  * @author Vasilios Mavroudis and Petr Svenda
@@ -43,6 +44,9 @@ public class MPCApplet extends Applet {
 
         ECPointBuilder.allocate(m_curve, m_ecc);
         ECPointBase.allocate(m_curve);
+        if (m_ecc.MULT_RSA_ENGINE_MAX_LENGTH_BITS < (short) 1024) {
+            ISOException.throwIt(Consts.SW_INCORRECTJCMATHLIBSETTINGS);
+        }
         
         m_cryptoOps = new MPCCryptoOps(m_ecc);
         
@@ -610,7 +614,7 @@ public class MPCApplet extends Applet {
     }
     
     /**
-     * Part of distributed signature scheme (Algorithm 4.7). All KeyGen_xxx must be executed
+     * First part of distributed signature scheme (Algorithm 4.7). All KeyGen_xxx must be executed
      * before. 
      * @apdu input apdu
      */
@@ -627,18 +631,11 @@ public class MPCApplet extends Applet {
         apdu.setOutgoingAndSend((short) 0, dataLen);
     }  
     
-    /** 
-     * The signing phase starts with the host sending a Sign request
-     * to all ICs . Such a request includes the hash of the plaintext
-     * Hash(m), the index of the round j, and the random group element Rj
-     * corresponding to the round. Each IC then first verifies that the host has
-     * the authorization to submit queries ( and that the specific j has not
-     * been already used . The latter check on j is to prevent attacks that
-     * aim to either leak the private key or to allow the adversary to craft new
-     * signatures from existing ones. If these checks are successful, the IC
-     * executes Algorithm 4.7 and generates its signature share. The
-     * signature share (σi, j , ϵj ) is then sent to the host.
-     * @param apdu 
+    /**
+     * Second part of distributed signature scheme (Algorithm 4.7). All
+     * KeyGen_xxx must be executed before.
+     *
+     * @apdu input data
      */
     void Sign(APDU apdu) {
         byte[] apdubuf = apdu.getBuffer();
@@ -648,8 +645,6 @@ public class MPCApplet extends Applet {
         // Verify authorization
         quorumCtx.VerifyCallerAuthorization(apdu, StateModel.FNC_QuorumContext_Sign);
 
-        // TODO: Check for strictly increasing request counter
-        
         m_cryptoOps.temp_sign_counter.from_byte_array((short) 2, (short) 0, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_COUNTER_OFFSET));
         short dataLen = Util.getShort(apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_DATALENGTH_OFFSET));
         dataLen = quorumCtx.Sign(m_cryptoOps.temp_sign_counter, apdubuf, (short) (paramsOffset + Consts.PACKET_PARAMS_SIGN_DATA_OFFSET), dataLen, apdubuf, (short) 0);

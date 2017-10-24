@@ -7,7 +7,7 @@ import javacard.security.ECKey;
 import javacard.security.ECPrivateKey;
 import javacard.security.KeyAgreement;
 import javacard.security.KeyPair;
-
+import mpc.jcmathlib.*;
 /**
  *
  * @author Vasilios Mavroudis and Petr Svenda

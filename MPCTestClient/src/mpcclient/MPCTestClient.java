@@ -58,7 +58,7 @@ import javacard.framework.ISO7816;
 import javafx.util.Pair;
 import mpc.Consts;
 import mpc.PM;
-import mpc.SecP256r1;
+import mpc.jcmathlib.*;
 
 /**
  *
@@ -131,7 +131,8 @@ public class MPCTestClient {
             runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
             //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 1;
-            runCfg.numPlayers = 2;
+            //runCfg.numWholeTestRepeats = 10; more than one repeat will fail on simulator due to change of address of allocated objects
+            runCfg.numPlayers = 4;
             MPCProtocol_playground(runCfg);
         } catch (Exception e) {
                 e.printStackTrace();
@@ -1633,7 +1634,7 @@ public class MPCTestClient {
 
 // Non-Optimized modulo with Java's BigInteger     
         BigInteger a2 = new BigInteger(1, xe_Bn_testInput1);
-        BigInteger r2 = new BigInteger(1, mpc.SecP256r1.r);
+        BigInteger r2 = new BigInteger(1, SecP256r1.r);
         a2.negate();
         BigInteger res2 = a2.mod(r2);
         System.out.format("a2 mod r2 = %s\n", res2.toString(16));
