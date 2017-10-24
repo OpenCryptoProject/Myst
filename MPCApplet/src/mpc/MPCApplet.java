@@ -530,6 +530,8 @@ public class MPCApplet extends Applet {
      * @param apdu 
      */
     void KeyMove_RetrievePrivKeyShares(APDU apdu) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
+
         byte[] apdubuf = apdu.getBuffer();
         short paramsOffset = GetOperationParamsOffset(Consts.INS_KEYPROPAGATION_RETRIEVE_PRIVKEY_SHARES, apdu);
         // Parse incoming apdu to obtain target quorum context
@@ -552,6 +554,8 @@ public class MPCApplet extends Applet {
      * @param apdu 
      */
     void KeyMove_SetPrivKeyShares(APDU apdu) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
+
         byte[] apdubuf = apdu.getBuffer();
         short paramsOffset = GetOperationParamsOffset(Consts.INS_KEYPROPAGATION_SET_PRIVKEY_SHARES, apdu);
         // Parse incoming apdu to obtain target quorum context
@@ -564,6 +568,8 @@ public class MPCApplet extends Applet {
     }
     
     void KeyMove_ReconstructPrivateKey(APDU apdu) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
+
         byte[] apdubuf = apdu.getBuffer();
         short paramsOffset = GetOperationParamsOffset(Consts.INS_KEYPROPAGATION_RECONSTRUCT_PRIVATEKEY, apdu);
         // Parse incoming apdu to obtain target quorum context
@@ -678,6 +684,8 @@ public class MPCApplet extends Applet {
      * string.
      */
     void GenerateRandomData(APDU apdu) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
+
         byte[] apdubuf = apdu.getBuffer();
         short paramsOffset = GetOperationParamsOffset(Consts.INS_GENERATE_RANDOM, apdu);
         // Parse incoming apdu to obtain target quorum context
