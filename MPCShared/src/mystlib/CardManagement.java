@@ -120,14 +120,13 @@ public class CardManagement {
     private static void connectToAllCardsByTerminalFactory(TerminalFactory factory, byte[] appAID, ArrayList<CardChannel> cardsList) throws CardException {
         ArrayList<CardTerminal> terminals = new ArrayList<>();
 
-        CardTerminal terminal = null;
         Card card = null;
         try {
             for (CardTerminal t : factory.terminals().list()) {
                 terminals.add(t);
                 if (t.isCardPresent()) {
                     System.out.print("Connecting...");
-                    card = terminal.connect("*"); // Connect with the card
+                    card = t.connect("*"); // Connect with the card
 
                     System.out.println(" Done.");
 
@@ -150,7 +149,7 @@ public class CardManagement {
             System.out.println("Failed.");
         }
 
-        System.out.println("Cards found: " + cardsList.size());
+        System.out.println("MPC cards found: " + cardsList.size());
     }
     
 
