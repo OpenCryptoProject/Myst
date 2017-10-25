@@ -28,14 +28,6 @@ import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECFieldElement;
 import org.bouncycastle.math.ec.ECPoint;
 
-
-
-
-
-
-
-
-
 import ds.ov2.bignat.Bignat;
 import ds.ov2.bignat.Convenience;
 import java.io.BufferedReader;
@@ -80,35 +72,13 @@ public class MPCTestClient {
     public static String format = "%-40s:%s%n\n-------------------------------------------------------------------------------\n";
 
     // Crypto-objects
-    // public static EllipticCurve curve;//classic java.sec
-    public static ECCurve curve;
-    public static BigInteger p;
-    public static BigInteger a;
-    public static BigInteger b;
-    public static BigInteger n;
-    public static ECPoint G;
-    public static ECParameterSpec ecSpec;
-
-    //public static DS_provider pr = new DS_provider();
-    public static BigInteger secret = BigInteger.valueOf(0);
-    public static ECPoint PubKey;
-    public static ECPoint AggPubKey;
-    public static ECPoint R_EC;
-
-
-    public static ECPoint c1;
-    public static ECPoint c2;
-    
-    static ArrayList<SimulatedPlayer>  players = new ArrayList<>();
-	
-    static ArrayList<Pair<String, Long>> perfResults = new ArrayList<>();
-    static Long m_lastTransmitTime = new Long(0);
-
-    public static ECPoint[] Rands;
+    static MPCGlobals  mpcGlobals = new MPCGlobals();
     
     static byte[] MPC_APPLET_AID = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, (byte) 0x0a, (byte) 0x4d, (byte) 0x50, (byte) 0x43, (byte) 0x41, (byte) 0x70, (byte) 0x70, (byte) 0x6c, (byte) 0x65, (byte) 0x74, (byte) 0x31};
     
-    // Performance
+    // Performance testing variables
+    static ArrayList<Pair<String, Long>> perfResults = new ArrayList<>();
+    static Long m_lastTransmitTime = new Long(0);
     public static HashMap<Short, String> PERF_STOP_MAPPING = new HashMap<>();
     public static byte[] PERF_COMMAND = {Consts.CLA_MPC, Consts.INS_PERF_SETSTOP, 0, 0, 2, 0, 0};
     //public static byte[] APDU_RESET = {(byte) 0xB0, (byte) 0x03, (byte) 0x00, (byte) 0x00};
@@ -116,23 +86,20 @@ public class MPCTestClient {
     static final String PERF_TRAP_CALL = "PM.check(PM.";
     static final String PERF_TRAP_CALL_END = ");";
     public final static boolean MODIFY_SOURCE_FILES_BY_PERF = true;
-    // end Performance
+    // end Performance testing variables
 
     public static void main(String[] args) throws Exception {
         try {
             buildPerfMapping();
 
-            Integer targetReader = 0;
-            if (args.length > 0) {
-                targetReader = Integer.getInteger(args[0]);
-            }
-            
             MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
             //runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
             runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 1;
-            //runCfg.numWholeTestRepeats = 10; more than one repeat will fail on simulator due to change of address of allocated objects
+            //runCfg.numWholeTestRepeats = 10; more than one repeat will fail on simulator due to change of address of allocated objects, runs ok on real card
             runCfg.numPlayers = 4;
+            runCfg.cardName = "gd60";
+            
             MPCProtocol_playground(runCfg);
         } catch (Exception e) {
                 e.printStackTrace();
@@ -145,47 +112,203 @@ public class MPCTestClient {
         perfFile.flush();
     }
 
-    static void MPCProtocol_playground(MPCRunConfig runCfg) throws Exception {
-        runCfg.cardName = "gd60";
+    static void MPCProtocol_demo(MPCRunConfig runCfg) throws Exception {
         String experimentID = String.format("%d", System.currentTimeMillis());
         runCfg.perfFile = new FileOutputStream(String.format("MPC_DETAILPERF_log_%s.csv", experimentID));
-        
-        Rands = new ECPoint[runCfg.numPlayers];
-        players.clear();
-        
-	// SecP256r1 curve
-	p = new BigInteger(bytesToHex(SecP256r1.p), 16);
-	a = new BigInteger(bytesToHex(SecP256r1.a), 16);
-	b = new BigInteger(bytesToHex(SecP256r1.b), 16);
-	curve = new ECCurve.Fp(p, a, b);
-	G = ECPointDeSerialization(SecP256r1.G, 0);
-	n = new BigInteger(bytesToHex(SecP256r1.r), 16); // also noted as r
-	ecSpec = new ECParameterSpec(curve, G, n);
-	//Security.addProvider(pr);
-	Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-        SecureRandom rng = new SecureRandom();
-		
-	// ======================= Secret Sharing Protocol =======================
-		 
 
-            /******* Simulate all remaining players *******/
+        // Prepare globals
+        mpcGlobals.Rands = new ECPoint[runCfg.numPlayers];
+        mpcGlobals.players.clear();
+
+        // Prepare SecP256r1 curve
+        prepareECCurve(mpcGlobals);
+
+        // Simulate all remaining participants in protocol in addition to MPC card 
         for (short cardID = (short) (runCfg.thisCardID + 1); cardID < runCfg.numPlayers; cardID++) {
-            players.add(new SimulatedPlayer(cardID));
+            mpcGlobals.players.add(new SimulatedPlayer(cardID, mpcGlobals.G, mpcGlobals.n));
         }
-            
+
         for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
-            /******* Card stuff *******/
+            // Prepare card participant (real card or jcardsim) based on runCfg.testCardType
             System.out.print("Connecting to card...");
-            
             CardChannel channel = Connect(runCfg);
             System.out.println(" Done.");
 
             // If required, make the applet "backdoored" to demonstrate functionality of 
-            // incorrect behavior of malicious attacker
+            // incorrect behavior of a malicious attacker
             if (_IS_BACKDOORED_EXAMPLE) {
                 SetBackdoorExample(channel, true);
             }
 
+            // Retrieve card information
+            GetCardInfo(channel);
+
+            /**
+             * **** Protocol ******
+             */
+            perfResults.clear();
+            String logFileName = String.format("MPC_PERF_log_%d.csv", System.currentTimeMillis());
+            FileOutputStream perfFile = new FileOutputStream(logFileName);
+
+            // Setup
+            String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
+            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
+            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
+            // Reset
+            operationName = "Reseting the card to an uninitialized state (INS_RESET)";
+            System.out.format(format, operationName, Reset(channel, QUORUM_INDEX));
+            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
+            // Setup again
+            operationName = "Setting Up the MPC Parameters (INS_SETUP)";
+            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
+            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
+            // BUGBUG: Signature without previous EncryptDecrypt will fail on CryptoObjects.KeyPair.Getxi() - as no INS_KEYGEN_xxx was called
+/*             
+             //
+             //EC Operations
+             //
+             //operationName = "EC Point Addition";
+             //System.out.format(format, operationName, PointAdd(channel));
+            
+             //System.exit(0);
+           
+             operationName = "Native ECPoint Add (INS_TESTECC)";
+             for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
+             ECPoint pnt1 = randECPoint();
+             ECPoint pnt2 = randECPoint();
+             System.out.format(format, operationName, TestNativeECAdd(channel, pnt1, pnt2));
+             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+             }
+            
+             operationName = "Native ECPoint scalar multiplication (INS_TESTECC)";
+             for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
+             ECPoint pnt1 = randECPoint();
+             BigInteger scalar = randomBigNat(256);
+             System.out.format(format, operationName, TestNativeECMult(channel, pnt1, scalar));
+             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+             }
+             */
+            //
+            // Encrypt / Decrypt
+            //
+            PerformEncryptDecrypt(BigInteger.TEN, mpcGlobals.players, channel, perfResults, perfFile, runCfg);
+
+            // Repeated measurements if required
+            for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
+                //    PerformEncryptDecrypt(BigInteger.valueOf(rng.nextInt()), players, channel, perfResults, perfFile);
+            }
+
+            //
+            // Sign
+            //
+            //PerformSignature(BigInteger.TEN, players, channel, perfResults, perfFile);
+            PerformSignCache(mpcGlobals.players, channel, perfResults, perfFile);
+            PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, channel, perfResults, perfFile, runCfg);
+            //PerformSignature(BigInteger.valueOf(84125637), 1, players, channel, perfResults, perfFile);
+/*            
+             // Repeated measurements if required
+             long elapsed = -System.currentTimeMillis();
+             for (int i = 1; i < runCfg.numSingleOpRepeats; i++) {
+             //System.out.println("******** \n RETRY " + i + " \n");
+             PerformSignature(BigInteger.valueOf(rng.nextInt()), 1, players, channel, perfResults, perfFile);
+             }
+             elapsed += System.currentTimeMillis();
+             System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed,  elapsed / (float) runCfg.numSingleOpRepeats);
+             */
+            /*            
+             //Aggregate pub keys
+             AggPubKey = ECPointDeSerialization(RetrievePubKey(channel), 0);
+             for (SimulatedPlayer player : players) {
+             AggPubKey = AggPubKey.add(player.pub_key_EC);
+             }
+            
+             PerformSignCache(players, channel, perfResults, perfFile);
+             //PerformSignature(BigInteger.valueOf(rng.nextInt()), 1, players, channel, perfResults, perfFile);
+            
+             // Repeated measurements if required
+             for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
+             System.out.println("******** \n RETRY " + i + " \n");
+             PerformSignature(BigInteger.valueOf(rng.nextInt()), i+1, players, channel, perfResults, perfFile);
+             }
+             */
+
+            System.out.print("Disconnecting from card...");
+            channel.getCard().disconnect(true); // Disconnect from the card
+            System.out.println(" Done.");
+
+            // Close cvs perf file
+            perfFile.close();
+
+            // Save performance results also as latex
+            saveLatexPerfLog(perfResults);
+
+            if (runCfg.failedPerfTraps.size() > 0) {
+                System.out.println("#########################");
+                System.out.println("!!! SOME PERFORMANCE TRAPS NOT REACHED !!!");
+                System.out.println("#########################");
+                for (String trap : runCfg.failedPerfTraps) {
+                    System.out.println(trap);
+                }
+            } else {
+                System.out.println("##########################");
+                System.out.println("ALL PERFORMANCE TRAPS REACHED CORRECTLY");
+                System.out.println("##########################");
+            }
+
+            // Save performance traps into single file
+            String perfFileName = String.format("TRAP_RAW_%s.csv", experimentID);
+            SavePerformanceResults(runCfg.perfResultsSubpartsRaw, perfFileName);
+
+            // If required, modification of source code files is attempted
+            if (MODIFY_SOURCE_FILES_BY_PERF) {
+                String dirPath = "..\\!PerfSRC\\Lib\\";
+                InsertPerfInfoIntoFiles(dirPath, runCfg.cardName, experimentID, runCfg.perfResultsSubpartsRaw);
+            }
+        }
+    }
+    
+    static void prepareECCurve(MPCGlobals mpcParams) {
+        mpcParams.p = new BigInteger(bytesToHex(SecP256r1.p), 16);
+        mpcParams.a = new BigInteger(bytesToHex(SecP256r1.a), 16);
+        mpcParams.b = new BigInteger(bytesToHex(SecP256r1.b), 16);
+        mpcParams.curve = new ECCurve.Fp(mpcParams.p, mpcParams.a, mpcParams.b);
+        mpcParams.G = ECPointDeSerialization(SecP256r1.G, 0);
+        mpcParams.n = new BigInteger(bytesToHex(SecP256r1.r), 16); // also noted as r
+        mpcParams.ecSpec = new ECParameterSpec(mpcParams.curve, mpcParams.G, mpcParams.n);
+        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
+    }
+    
+    static void MPCProtocol_playground(MPCRunConfig runCfg) throws Exception {
+        String experimentID = String.format("%d", System.currentTimeMillis());
+        runCfg.perfFile = new FileOutputStream(String.format("MPC_DETAILPERF_log_%s.csv", experimentID));
+        
+        mpcGlobals.Rands = new ECPoint[runCfg.numPlayers];
+        mpcGlobals.players.clear();
+        
+	// Prepare SecP256r1 curve
+        prepareECCurve(mpcGlobals);
+		
+        // Simulate all remaining participants in protocol in addition to MPC card 
+        for (short cardID = (short) (runCfg.thisCardID + 1); cardID < runCfg.numPlayers; cardID++) {
+            mpcGlobals.players.add(new SimulatedPlayer(cardID, mpcGlobals.G, mpcGlobals.n));
+        }
+            
+        for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
+            // Prepare card participant (real card or jcardsim) based on runCfg.testCardType
+            System.out.print("Connecting to card...");
+            CardChannel channel = Connect(runCfg);
+            System.out.println(" Done.");
+
+            // If required, make the applet "backdoored" to demonstrate functionality of 
+            // incorrect behavior of a malicious attacker
+            if (_IS_BACKDOORED_EXAMPLE) {
+                SetBackdoorExample(channel, true);
+            }
+
+            // Retrieve card information
             GetCardInfo(channel);
             
             
@@ -211,7 +334,7 @@ public class MPCTestClient {
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
             // BUGBUG: Signature without previous EncryptDecrypt will fail on CryptoObjects.KeyPair.Getxi() - as no INS_KEYGEN_xxx was called
-            
+/*             
             //
             //EC Operations
             //
@@ -219,7 +342,7 @@ public class MPCTestClient {
             //System.out.format(format, operationName, PointAdd(channel));
             
             //System.exit(0);
-/*            
+           
             operationName = "Native ECPoint Add (INS_TESTECC)";
             for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
                 ECPoint pnt1 = randECPoint();
@@ -241,7 +364,7 @@ public class MPCTestClient {
             //
             // Encrypt / Decrypt
             //
-            PerformEncryptDecrypt(BigInteger.TEN, players, channel, perfResults, perfFile, runCfg);
+            PerformEncryptDecrypt(BigInteger.TEN, mpcGlobals.players, channel, perfResults, perfFile, runCfg);
 
             // Repeated measurements if required
             for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
@@ -252,8 +375,8 @@ public class MPCTestClient {
             // Sign
             //
             //PerformSignature(BigInteger.TEN, players, channel, perfResults, perfFile);
-            PerformSignCache(players, channel, perfResults, perfFile);
-            PerformSignature(BigInteger.TEN, 1, players, channel, perfResults, perfFile, runCfg);
+            PerformSignCache(mpcGlobals.players, channel, perfResults, perfFile);
+            PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, channel, perfResults, perfFile, runCfg);
             //PerformSignature(BigInteger.valueOf(84125637), 1, players, channel, perfResults, perfFile);
 /*            
             // Repeated measurements if required
@@ -320,30 +443,21 @@ public class MPCTestClient {
     }
         
     /**
-     * This integration test is executed in tests - don't make any temporary changes - use 
+     * This integration test is executed in tests - don't make any temporary changes
      * @param runCfg test configurations
      * @throws Exception 
      */
     static void TestMPCProtocol_v20170520(MPCRunConfig runCfg) throws Exception {
-        Rands = new ECPoint[runCfg.numPlayers];
-        players.clear();
+        mpcGlobals.Rands = new ECPoint[runCfg.numPlayers];
+        mpcGlobals.players.clear();
 
         // SecP256r1 curve
-        p = new BigInteger(bytesToHex(SecP256r1.p), 16);
-        a = new BigInteger(bytesToHex(SecP256r1.a), 16);
-        b = new BigInteger(bytesToHex(SecP256r1.b), 16);
-        curve = new ECCurve.Fp(p, a, b);
-        G = ECPointDeSerialization(SecP256r1.G, 0);
-        n = new BigInteger(bytesToHex(SecP256r1.r), 16); // also noted as r
-        ecSpec = new ECParameterSpec(curve, G, n);
-        //Security.addProvider(pr);
-        Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
-        SecureRandom rng = new SecureRandom();
+        prepareECCurve(mpcGlobals);
 
 	// ======================= Secret Sharing Protocol =======================
         // Simulate all remaining players ******
         for (short cardID = (short) (runCfg.thisCardID + 1); cardID < runCfg.numPlayers; cardID++) {
-            players.add(new SimulatedPlayer(cardID));
+            mpcGlobals.players.add(new SimulatedPlayer(cardID, mpcGlobals.G, mpcGlobals.n));
         }
 
         for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
@@ -370,15 +484,15 @@ public class MPCTestClient {
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
             // Encrypt / Decrypt
-            PerformEncryptDecrypt(BigInteger.TEN, players, channel, perfResults, perfFile, null);
+            PerformEncryptDecrypt(BigInteger.TEN, mpcGlobals.players, channel, perfResults, perfFile, null);
             //Aggregate pub keys
-            AggPubKey = ECPointDeSerialization(RetrievePubKey(channel, QUORUM_INDEX), 0);
-            for (SimulatedPlayer player : players) {
-                AggPubKey = AggPubKey.add(player.pub_key_EC);
+            mpcGlobals.AggPubKey = ECPointDeSerialization(RetrievePubKey(channel, QUORUM_INDEX), 0);
+            for (SimulatedPlayer player : mpcGlobals.players) {
+                mpcGlobals.AggPubKey = mpcGlobals.AggPubKey.add(player.pub_key_EC);
             }
             // Sign (two options)
-            PerformSignCache(players, channel, perfResults, perfFile);
-            PerformSignature(BigInteger.valueOf(84125637), 1, players, channel, perfResults, perfFile, null);
+            PerformSignCache(mpcGlobals.players, channel, perfResults, perfFile);
+            PerformSignature(BigInteger.valueOf(84125637), 1, mpcGlobals.players, channel, perfResults, perfFile, null);
 
             System.out.print("Disconnecting from card...");
             channel.getCard().disconnect(true); // Disconnect from the card
@@ -430,7 +544,7 @@ public class MPCTestClient {
 
         // Push hash for all our pub keys
         operationName = "Store pub key hash (INS_KEYGEN_STORE_HASH)";
-        for (SimulatedPlayer player : players) {
+        for (SimulatedPlayer player : mpcGlobals.players) {
             System.out.format(format, operationName, StorePubKeyHash(channel, QUORUM_INDEX, player.playerID, player.pub_key_Hash));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
@@ -444,7 +558,7 @@ public class MPCTestClient {
 
         // Push all public keys
         operationName = "Store Pub Key (INS_KEYGEN_STORE_PUBKEY)";
-        for (SimulatedPlayer player : players) {
+        for (SimulatedPlayer player : mpcGlobals.players) {
             System.out.format(format, operationName, StorePubKey(channel, QUORUM_INDEX, player.playerID, player.pub_key_EC.getEncoded(false)));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
@@ -465,7 +579,7 @@ public class MPCTestClient {
         combinedTime += m_lastTransmitTime;
 
         // Encrypt EC Point
-        byte[] plaintext = G.multiply(msgToEncDec).getEncoded(false);
+        byte[] plaintext = mpcGlobals.G.multiply(msgToEncDec).getEncoded(false);
         operationName = String.format("Encrypt(%s) (INS_ENCRYPT)", msgToEncDec.toString()); 
         byte[] ciphertext = Encrypt(channel, QUORUM_INDEX, plaintext, runCfg, _PROFILE_PERFORMANCE);
         writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
@@ -481,8 +595,8 @@ public class MPCTestClient {
 
             // Decrypt EC Point
             // Combine all decryption shares (x_ic) (except for card which is added below) 
-            ECPoint xc1_EC = curve.getInfinity();
-            for (SimulatedPlayer player : players) {
+            ECPoint xc1_EC = mpcGlobals.curve.getInfinity();
+            for (SimulatedPlayer player : mpcGlobals.players) {
                 xc1_EC = xc1_EC.add(c1.multiply(player.priv_key_BI).negate());
             }
 
@@ -534,17 +648,17 @@ public class MPCTestClient {
         one.one();
         counter.one();
 
-        for (short round = 1; round <= Rands.length; round++) {
-            Rands[round - 1] = ECPointDeSerialization(RetrieveRI(channel, QUORUM_INDEX, round), 0);
-            System.out.format(format, "Retrieve Ri,n (INS_SIGN_RETRIEVE_RI):", bytesToHex(Rands[round - 1].getEncoded(false)));
+        for (short round = 1; round <= mpcGlobals.Rands.length; round++) {
+            mpcGlobals.Rands[round - 1] = ECPointDeSerialization(RetrieveRI(channel, QUORUM_INDEX, round), 0);
+            System.out.format(format, "Retrieve Ri,n (INS_SIGN_RETRIEVE_RI):", bytesToHex(mpcGlobals.Rands[round - 1].getEncoded(false)));
 
             for (SimulatedPlayer player : playersList) {
-                Rands[round - 1] = Rands[round - 1].add(ECPointDeSerialization(player.Gen_Rin(counter), 0));
+                mpcGlobals.Rands[round - 1] = mpcGlobals.Rands[round - 1].add(ECPointDeSerialization(player.Gen_Rin(counter), 0));
             }
             counter.add(one);
         }
-        for (int round = 1; round <= Rands.length; round++) {
-            System.out.format("Rands[%d]%s\n", round - 1, bytesToHex(Rands[round - 1].getEncoded(false)));
+        for (int round = 1; round <= mpcGlobals.Rands.length; round++) {
+            System.out.format("Rands[%d]%s\n", round - 1, bytesToHex(mpcGlobals.Rands[round - 1].getEncoded(false)));
         }
         System.out.println();
     }
@@ -567,10 +681,10 @@ public class MPCTestClient {
      */
     static void PerformSignature(BigInteger msgToSign, int i, ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
             // Sign EC Point
-            byte[] plaintext_sig = G.multiply(msgToSign).getEncoded(false);                     
+            byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);                     
             
             //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString());            
-            byte[] signature = Sign(channel, QUORUM_INDEX, i, plaintext_sig, Rands[i-1].getEncoded(false), runCfg, _PROFILE_PERFORMANCE);
+            byte[] signature = Sign(channel, QUORUM_INDEX, i, plaintext_sig, mpcGlobals.Rands[i-1].getEncoded(false), runCfg, _PROFILE_PERFORMANCE);
             
             //Parse s from Card
             Bignat card_s_Bn = new Bignat((short) 32, false);
@@ -598,11 +712,11 @@ public class MPCTestClient {
             }
             
             for (SimulatedPlayer player : playersList) {
-                sum_s_BI = sum_s_BI.add(player.Sign(counter, Rands[i-1], plaintext_sig));
-                sum_s_BI = sum_s_BI.mod(n);
+                sum_s_BI = sum_s_BI.add(player.Sign(counter, mpcGlobals.Rands[i-1], plaintext_sig));
+                sum_s_BI = sum_s_BI.mod(mpcGlobals.n);
             }
             
-            System.out.format(format, "Verify Signature", Verify(plaintext_sig, AggPubKey, sum_s_BI, card_e_BI));
+            System.out.format(format, "Verify Signature", Verify(plaintext_sig, mpcGlobals.AggPubKey, sum_s_BI, card_e_BI));
         
         }
         
@@ -886,7 +1000,7 @@ public class MPCTestClient {
         Bignat tmp_BN = new Bignat(Consts.SHARE_BASIC_SIZE, false);
         tmp_BN.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, (response.getData()),
                 (short) 0);
-        secret = Convenience.bi_from_bn(tmp_BN);
+        mpcGlobals.secret = Convenience.bi_from_bn(tmp_BN);
 
         return checkSW(response);
     }
@@ -897,7 +1011,7 @@ public class MPCTestClient {
                 Consts.INS_KEYGEN_RETRIEVE_PUBKEY, 0x00, 0x00, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
-        PubKey = ECPointDeSerialization(response.getData(), 0); // Store Pub
+        mpcGlobals.PubKey = ECPointDeSerialization(response.getData(), 0); // Store Pub
 
         // return checkSW(response);
         return response.getData();
@@ -910,7 +1024,7 @@ public class MPCTestClient {
                 Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, 0x00, 0x00, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
-        AggPubKey = ECPointDeSerialization(response.getData(), 0); // Store aggregated pub
+        mpcGlobals.AggPubKey = ECPointDeSerialization(response.getData(), 0); // Store aggregated pub
 
         return checkSW(response);
     }
@@ -1164,8 +1278,8 @@ public class MPCTestClient {
         
         
 	private static boolean PointAdd(CardChannel channel) throws Exception {
-        byte[] PointA = G.multiply(BigInteger.valueOf(10)).getEncoded(false);
-        byte[] PointB = G.multiply(BigInteger.valueOf(20)).getEncoded(false);
+        byte[] PointA = mpcGlobals.G.multiply(BigInteger.valueOf(10)).getEncoded(false);
+        byte[] PointB = mpcGlobals.G.multiply(BigInteger.valueOf(20)).getEncoded(false);
 
 		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ADDPOINTS, 0x00, 0x00, concat(PointA, PointB));
 		ResponseAPDU response = transmit(channel, cmd);
@@ -1176,7 +1290,7 @@ public class MPCTestClient {
 	private static boolean Verify(byte[] plaintext, ECPoint pubkey, BigInteger s_bi, BigInteger e_bi) throws Exception {
 
 		// Compute rv = sG+eY
-		ECPoint rv_EC = G.multiply(s_bi); // sG
+		ECPoint rv_EC = mpcGlobals.G.multiply(s_bi); // sG
 		rv_EC = rv_EC.add(pubkey.multiply(e_bi)); // +eY
 
 		// Compute ev = H(m||rv)
@@ -1185,7 +1299,7 @@ public class MPCTestClient {
 		md.update(rv_EC.getEncoded(false));
 		byte[] ev = md.digest();
 		BigInteger ev_bi = new BigInteger(1, ev);
-		ev_bi = ev_bi.mod(n);
+		ev_bi = ev_bi.mod(mpcGlobals.n);
 
 		//System.out.println(bytesToHex(e_bi.toByteArray()));		
 		//System.out.println(bytesToHex(ev_bi.toByteArray()));
@@ -1307,7 +1421,7 @@ public class MPCTestClient {
 		BigInteger y = new BigInteger(bytesToHex(y_b), 16);
 		// System.out.println("Y:" + toHex(y_b));
 
-		ECPoint point = curve.createPoint(x, y);
+		ECPoint point = mpcGlobals.curve.createPoint(x, y);
 
 		return point;
 	}
