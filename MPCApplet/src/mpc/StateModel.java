@@ -74,26 +74,32 @@ public class StateModel {
             case STATE_QUORUM_CLEARED:
                 if (requestedFnc == FNC_QuorumContext_SetupNew)  return;                   
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+                break;
     
             case STATE_QUORUM_INITIALIZED:
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+                break;
                 
             case STATE_KEYGEN_CLEARED:
                 if (requestedFnc == FNC_QuorumContext_InitAndGenerateKeyPair) return;
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED);
+                break;
 
             case STATE_KEYGEN_PRIVATEGENERATED:
                 if (requestedFnc == FNC_QuorumContext_RetrieveCommitment) return;      
                 if (requestedFnc == FNC_QuorumContext_StoreCommitment) return;      
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+                break;
 
             case STATE_KEYGEN_COMMITMENTSCOLLECTED:
                 if (requestedFnc == FNC_QuorumContext_SetYs) return;      
                 if (requestedFnc == FNC_QuorumContext_GetYi) return;      
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+                break;
     
             case STATE_KEYGEN_SHARESCOLLECTED:
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+                break;
     
             case STATE_KEYGEN_KEYPAIRGENERATED:
                 if (requestedFnc == FNC_QuorumContext_GetXi)  return;
@@ -105,9 +111,11 @@ public class StateModel {
                 if (requestedFnc == FNC_QuorumContext_Sign_GetCurrentCounter)  return;                   
 
                 ISOException.throwIt(Consts.SW_FUNCTINNOTALLOWED); // if reached, function is not allowed in given state
+                break;
 
             default:
                 ISOException.throwIt(Consts.SW_UNKNOWNSTATE);
+                break;
        }
     }
 
@@ -123,26 +131,34 @@ public class StateModel {
         switch (currentState) {
             case STATE_QUORUM_CLEARED:
                 if (newState == STATE_QUORUM_INITIALIZED) return newState;
-                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION); // if reached, transition is not allowed
+                ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION); // if reached, transition is not allowed
+                break;
             case STATE_QUORUM_INITIALIZED:
                 if (newState == STATE_KEYGEN_CLEARED) return newState;
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION); // if reached, transition is not allowed
+                break;
             case STATE_KEYGEN_CLEARED:
                 if (newState == STATE_KEYGEN_PRIVATEGENERATED) return newState;        
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION); // if reached, transition is not allowed
+                break;
             case STATE_KEYGEN_PRIVATEGENERATED:
                 if (newState == STATE_KEYGEN_COMMITMENTSCOLLECTED) return newState;
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
+                break;
             case STATE_KEYGEN_COMMITMENTSCOLLECTED:
                 if (newState == STATE_KEYGEN_SHARESCOLLECTED) return newState;
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
+                break;
             case STATE_KEYGEN_SHARESCOLLECTED:
                 if (newState == STATE_KEYGEN_KEYPAIRGENERATED) return newState;
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
+                break;
             case STATE_KEYGEN_KEYPAIRGENERATED:
                 ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
+                break;
             default:
                 ISOException.throwIt(Consts.SW_UNKNOWNSTATE);
+                break;
         }        
         ISOException.throwIt(Consts.SW_INCORRECTSTATETRANSITION);
         return newState;

@@ -237,7 +237,7 @@ public class MPCApplet extends Applet {
         short packetLen = Util.getShort(apdubuf, offset);
         if (packetLen < 1 || packetLen > dataLen) ISOException.throwIt(Consts.SW_INVALIDPACKETSTRUCTURE); // at least 1 byte of packet content required for operationCode
         offset += 2;
-        if ((byte) apdubuf[offset] != (byte) operationCode) ISOException.throwIt(Consts.SW_INVALIDPACKETSTRUCTURE);
+        if (apdubuf[offset] != operationCode) ISOException.throwIt(Consts.SW_INVALIDPACKETSTRUCTURE);
 
         return offset;
     }
@@ -388,12 +388,13 @@ public class MPCApplet extends Applet {
 
     /**
      * Set trusted hashes of public keys for all other cards that may eventually
-     * take part in protocol Used to quickly verify provided player's public key
+     * take part in protocol. Used to quickly verify provided player's public key
      * during the protocol run
      *
      * @param apdu
      */
     void SetTrustedPubKeyHashes(APDU apdu) {
+        ISOException.throwIt(Consts.SW_NOTSUPPORTEDYET);
         // TODO
     }
     
