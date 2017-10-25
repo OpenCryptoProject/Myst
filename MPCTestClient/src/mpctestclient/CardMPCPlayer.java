@@ -470,7 +470,7 @@ public class CardMPCPlayer implements MPCPlayer {
         
         return card_s_bi;
     }
-    private byte[] Sign_plain(short quorumIndex, int round, byte[] plaintext, byte[] Rn) throws Exception {
+    public byte[] Sign_plain(short quorumIndex, int round, byte[] plaintext, byte[] Rn) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_SIGN, quorumIndex, (short) round, (short) ((short) plaintext.length + (short) Rn.length));
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, Util.concat(packetData, Util.concat(plaintext, Rn)));
         ResponseAPDU response = transmit(channel, cmd);

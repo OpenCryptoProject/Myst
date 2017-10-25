@@ -191,7 +191,7 @@ public class MPCTestClient {
             // Sign
             //
             PerformSignCache(mpcGlobals.players, channel, perfResults, perfFile);
-            PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, channel, perfResults, perfFile, runCfg);
+            PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, perfResults, perfFile, runCfg);
 /*            
              // Repeated measurements if required
              long elapsed = -System.currentTimeMillis();
@@ -335,6 +335,9 @@ public class MPCTestClient {
         for (MPCPlayer player : mpcGlobals.players) {
             operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
             System.out.format(format, operationName, player.RetrieveAggPubKey(QUORUM_INDEX));
+            if (player instanceof CardMPCPlayer) {
+                mpcGlobals.AggPubKey = player.GetAggregatedPubKey(QUORUM_INDEX);
+            }
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
@@ -492,13 +495,53 @@ public class MPCTestClient {
      * @throws NoSuchAlgorithmException
      * @throws Exception 
      */
-    static void PerformSignature(BigInteger msgToSign, int counter, ArrayList<MPCPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
+    
+    static void PerformSignature(BigInteger msgToSign, int counter, ArrayList<MPCPlayer> playersList, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
         // Sign EC Point
         byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);                     
-
+     
+        if (!playersList.isEmpty()) {
+            BigInteger sum_s_BI = new BigInteger("0");
+            BigInteger card_e_BI = new BigInteger("0");
+            boolean bFirstPlayer = true; 
+            for (MPCPlayer player : playersList) {
+                if (bFirstPlayer) {
+                    //mpcGlobals.AggPubKey = player.GetAggregatedPubKey(QUORUM_INDEX); // Retrieve aggregated key from the first user 
+                    sum_s_BI = player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig);
+                    card_e_BI = player.GetE(QUORUM_INDEX);
+                    bFirstPlayer = false;
+                }
+                else {
+                    sum_s_BI = sum_s_BI.add(player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig));
+                    sum_s_BI = sum_s_BI.mod(mpcGlobals.n);
+                }
+            }
 /*            
-        //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString());            
-        byte[] signature = Sign(channel, QUORUM_INDEX, i, plaintext_sig, mpcGlobals.Rands[i-1].getEncoded(false), runCfg, _PROFILE_PERFORMANCE);
+            //Aggregate pub keys
+            mpcGlobals.AggPubKey = null;
+            for (MPCPlayer player : playersList) {
+                if (mpcGlobals.AggPubKey == null) {
+                    mpcGlobals.AggPubKey = Util.ECPointDeSerialization(player.GetPubKey(QUORUM_INDEX).getEncoded(false), 0);
+                }
+                else {
+                    mpcGlobals.AggPubKey = mpcGlobals.AggPubKey.add(player.GetPubKey(QUORUM_INDEX));
+                }
+            }
+*/            
+
+            System.out.format(format, "Verify Signature", Verify(plaintext_sig, mpcGlobals.AggPubKey, sum_s_BI, card_e_BI));
+        }
+    }
+/**/
+/*    
+    static void PerformSignature(BigInteger msgToSign, int i, ArrayList<MPCPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
+        // Sign EC Point
+        byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);
+
+        //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString()); 
+        CardMPCPlayer cardPlayer = (CardMPCPlayer) playersList.get(0);
+        byte[] signature = cardPlayer.Sign_plain(QUORUM_INDEX, i, plaintext_sig, mpcGlobals.Rands[i - 1].getEncoded(false));
+        mpcGlobals.AggPubKey = cardPlayer.GetAggregatedPubKey(QUORUM_INDEX); // Retrieve aggregated key from the first user 
 
         //Parse s from Card
         Bignat card_s_Bn = new Bignat((short) 32, false);
@@ -510,32 +553,30 @@ public class MPCTestClient {
         card_e_Bn.from_byte_array((short) 32, (short) 0, signature, (short) 32);
         BigInteger card_e_BI = new BigInteger(1, card_e_Bn.as_byte_array());
 
-        //System.out.println("REALCARD : s:        " + bytesToHex(card_s_Bn.as_byte_array()));
+            //System.out.println("REALCARD : s:        " + bytesToHex(card_s_Bn.as_byte_array()));
         //System.out.println("REALCARD : e:        " + bytesToHex(card_e_Bn.as_byte_array()) + "\n");
-
         BigInteger sum_s_BI = card_s_bi;
-*/            
-        if (!playersList.isEmpty()) {
-            BigInteger sum_s_BI = new BigInteger("0");
-            BigInteger card_e_BI = new BigInteger("0");
-            boolean bFirstPlayer = true; 
-            for (MPCPlayer player : playersList) {
-                if (bFirstPlayer) {
-                    mpcGlobals.AggPubKey = player.GetAggregatedPubKey(QUORUM_INDEX); // Retrieve aggregated key from the first user 
-                    sum_s_BI = player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig);
-                    card_e_BI = player.GetE(QUORUM_INDEX);
-                    bFirstPlayer = false;
-                }
-                else {
-                    sum_s_BI = sum_s_BI.add(player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig));
-                    sum_s_BI = sum_s_BI.mod(mpcGlobals.n);
-                }
-            }
 
-            System.out.format(format, "Verify Signature", Verify(plaintext_sig, mpcGlobals.AggPubKey, sum_s_BI, card_e_BI));
+        //Super bad & ugly way of converting short to Bignat (I've added a proper function in the actual lib)
+        Bignat one = new Bignat((short) 2);
+        one.one();
+        Bignat counter = new Bignat((short) 2);
+        counter.zero();
+        for (int j = 0; j < i; j += 1) {
+            counter.add(one);
         }
+
+        for (MPCPlayer player : playersList) {
+            if (player instanceof SimulatedMPCPlayer) {
+                sum_s_BI = sum_s_BI.add(player.Sign(QUORUM_INDEX, i - 1, mpcGlobals.Rands[i - 1].getEncoded(false), plaintext_sig));
+                sum_s_BI = sum_s_BI.mod(mpcGlobals.n);
+            }
+        }
+
+        System.out.format(format, "Verify Signature", Verify(plaintext_sig, mpcGlobals.AggPubKey, sum_s_BI, card_e_BI));
     }
-        
+*/    
+    
     private static boolean Verify(byte[] plaintext, ECPoint pubkey, BigInteger s_bi, BigInteger e_bi) throws Exception {
 
         // Compute rv = sG+eY

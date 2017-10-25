@@ -92,7 +92,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
     }
     @Override
     public boolean GenKeyPair(short quorumIndex) throws Exception {
-        this.KeyGen();
+        //this.KeyGen();
         return true;
     }
     @Override
