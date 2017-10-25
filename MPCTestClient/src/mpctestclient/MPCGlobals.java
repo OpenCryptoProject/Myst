@@ -20,14 +20,13 @@ public class MPCGlobals {
     public static ECParameterSpec ecSpec;
 
     public static BigInteger secret = BigInteger.valueOf(0);
-    public static ECPoint PubKey;
     public static ECPoint AggPubKey;
     public static ECPoint R_EC;
 
     public static ECPoint c1;
     public static ECPoint c2;
 
-    static ArrayList<SimulatedPlayer> players = new ArrayList<>();
+    static ArrayList<MPCPlayer> players = new ArrayList<>();
 
     public static ECPoint[] Rands;    
 }

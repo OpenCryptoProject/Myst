@@ -100,7 +100,7 @@ public class MPCTestClient {
             runCfg.numPlayers = 4;
             runCfg.cardName = "gd60";
             
-            MPCProtocol_playground(runCfg);
+            MPCProtocol_demo(runCfg);
         } catch (Exception e) {
                 e.printStackTrace();
         }
@@ -122,92 +122,75 @@ public class MPCTestClient {
 
         // Prepare SecP256r1 curve
         prepareECCurve(mpcGlobals);
-
-        // Simulate all remaining participants in protocol in addition to MPC card 
-        for (short cardID = (short) (runCfg.thisCardID + 1); cardID < runCfg.numPlayers; cardID++) {
-            mpcGlobals.players.add(new SimulatedPlayer(cardID, mpcGlobals.G, mpcGlobals.n));
+        
+        // TODO: Obtain list of all connected MPC cards
+        
+        // Prepare card participant (real card or jcardsim) based on runCfg.testCardType
+        short cardID = runCfg.thisCardID;
+        System.out.print("Connecting to card...");
+        CardChannel channel = Connect(runCfg);
+        CardMPCPlayer cardPlayer = new CardMPCPlayer(channel, cardID, format, m_lastTransmitTime, _FAIL_ON_ASSERT);
+        System.out.println(" Done.");
+        // If required, make the applet "backdoored" to demonstrate functionality of 
+        // incorrect behavior of a malicious attacker
+        if (_IS_BACKDOORED_EXAMPLE) {
+            cardPlayer.SetBackdoorExample(channel, true);
+        }
+        // Retrieve card information
+        cardPlayer.GetCardInfo();    
+        mpcGlobals.players.add(cardPlayer);
+        cardID++;
+        
+        // Simulate all remaining participants in protocol in addition to MPC card(s) 
+        for (; cardID < runCfg.numPlayers; cardID++) {
+            mpcGlobals.players.add(new SimulatedMPCPlayer(cardID, mpcGlobals.G, mpcGlobals.n));
         }
 
         for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
-            // Prepare card participant (real card or jcardsim) based on runCfg.testCardType
-            System.out.print("Connecting to card...");
-            CardChannel channel = Connect(runCfg);
-            System.out.println(" Done.");
-
-            // If required, make the applet "backdoored" to demonstrate functionality of 
-            // incorrect behavior of a malicious attacker
-            if (_IS_BACKDOORED_EXAMPLE) {
-                SetBackdoorExample(channel, true);
-            }
-
-            // Retrieve card information
-            GetCardInfo(channel);
-
-            /**
-             * **** Protocol ******
-             */
             perfResults.clear();
             String logFileName = String.format("MPC_PERF_log_%d.csv", System.currentTimeMillis());
             FileOutputStream perfFile = new FileOutputStream(logFileName);
 
-            // Setup
-            String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
-            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+            //
+            // Setup card(s)
+            //
+            short playerIndex = 0;
+            for (MPCPlayer player : mpcGlobals.players) {
+                // Setup
+                String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
-            // Reset
-            operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-            System.out.format(format, operationName, Reset(channel, QUORUM_INDEX));
-            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                // Reset
+                operationName = "Reseting the card to an uninitialized state (INS_RESET)";
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
 
-            // Setup again
-            operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
-            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                // Setup again
+                operationName = "Setting Up the MPC Parameters (INS_SETUP)";
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                
+                playerIndex++;
+            }
 
             // BUGBUG: Signature without previous EncryptDecrypt will fail on CryptoObjects.KeyPair.Getxi() - as no INS_KEYGEN_xxx was called
-/*             
-             //
-             //EC Operations
-             //
-             //operationName = "EC Point Addition";
-             //System.out.format(format, operationName, PointAdd(channel));
-            
-             //System.exit(0);
-           
-             operationName = "Native ECPoint Add (INS_TESTECC)";
-             for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
-             ECPoint pnt1 = randECPoint();
-             ECPoint pnt2 = randECPoint();
-             System.out.format(format, operationName, TestNativeECAdd(channel, pnt1, pnt2));
-             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-             }
-            
-             operationName = "Native ECPoint scalar multiplication (INS_TESTECC)";
-             for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
-             ECPoint pnt1 = randECPoint();
-             BigInteger scalar = randomBigNat(256);
-             System.out.format(format, operationName, TestNativeECMult(channel, pnt1, scalar));
-             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-             }
-             */
+
             //
             // Encrypt / Decrypt
             //
             PerformEncryptDecrypt(BigInteger.TEN, mpcGlobals.players, channel, perfResults, perfFile, runCfg);
-
+/*
             // Repeated measurements if required
             for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
-                //    PerformEncryptDecrypt(BigInteger.valueOf(rng.nextInt()), players, channel, perfResults, perfFile);
+                PerformEncryptDecrypt(BigInteger.valueOf(rng.nextInt()), players, channel, perfResults, perfFile);
             }
-
+*/
             //
             // Sign
             //
-            //PerformSignature(BigInteger.TEN, players, channel, perfResults, perfFile);
             PerformSignCache(mpcGlobals.players, channel, perfResults, perfFile);
             PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, channel, perfResults, perfFile, runCfg);
-            //PerformSignature(BigInteger.valueOf(84125637), 1, players, channel, perfResults, perfFile);
 /*            
              // Repeated measurements if required
              long elapsed = -System.currentTimeMillis();
@@ -217,23 +200,7 @@ public class MPCTestClient {
              }
              elapsed += System.currentTimeMillis();
              System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed,  elapsed / (float) runCfg.numSingleOpRepeats);
-             */
-            /*            
-             //Aggregate pub keys
-             AggPubKey = ECPointDeSerialization(RetrievePubKey(channel), 0);
-             for (SimulatedPlayer player : players) {
-             AggPubKey = AggPubKey.add(player.pub_key_EC);
-             }
-            
-             PerformSignCache(players, channel, perfResults, perfFile);
-             //PerformSignature(BigInteger.valueOf(rng.nextInt()), 1, players, channel, perfResults, perfFile);
-            
-             // Repeated measurements if required
-             for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
-             System.out.println("******** \n RETRY " + i + " \n");
-             PerformSignature(BigInteger.valueOf(rng.nextInt()), i+1, players, channel, perfResults, perfFile);
-             }
-             */
+*/
 
             System.out.print("Disconnecting from card...");
             channel.getCard().disconnect(true); // Disconnect from the card
@@ -275,233 +242,12 @@ public class MPCTestClient {
         mpcParams.a = new BigInteger(bytesToHex(SecP256r1.a), 16);
         mpcParams.b = new BigInteger(bytesToHex(SecP256r1.b), 16);
         mpcParams.curve = new ECCurve.Fp(mpcParams.p, mpcParams.a, mpcParams.b);
-        mpcParams.G = ECPointDeSerialization(SecP256r1.G, 0);
+        mpcParams.G = Util.ECPointDeSerialization(SecP256r1.G, 0);
         mpcParams.n = new BigInteger(bytesToHex(SecP256r1.r), 16); // also noted as r
         mpcParams.ecSpec = new ECParameterSpec(mpcParams.curve, mpcParams.G, mpcParams.n);
         Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
     }
-    
-    static void MPCProtocol_playground(MPCRunConfig runCfg) throws Exception {
-        String experimentID = String.format("%d", System.currentTimeMillis());
-        runCfg.perfFile = new FileOutputStream(String.format("MPC_DETAILPERF_log_%s.csv", experimentID));
-        
-        mpcGlobals.Rands = new ECPoint[runCfg.numPlayers];
-        mpcGlobals.players.clear();
-        
-	// Prepare SecP256r1 curve
-        prepareECCurve(mpcGlobals);
-		
-        // Simulate all remaining participants in protocol in addition to MPC card 
-        for (short cardID = (short) (runCfg.thisCardID + 1); cardID < runCfg.numPlayers; cardID++) {
-            mpcGlobals.players.add(new SimulatedPlayer(cardID, mpcGlobals.G, mpcGlobals.n));
-        }
-            
-        for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
-            // Prepare card participant (real card or jcardsim) based on runCfg.testCardType
-            System.out.print("Connecting to card...");
-            CardChannel channel = Connect(runCfg);
-            System.out.println(" Done.");
 
-            // If required, make the applet "backdoored" to demonstrate functionality of 
-            // incorrect behavior of a malicious attacker
-            if (_IS_BACKDOORED_EXAMPLE) {
-                SetBackdoorExample(channel, true);
-            }
-
-            // Retrieve card information
-            GetCardInfo(channel);
-            
-            
-            /****** Protocol *******/
-            perfResults.clear();
-            String logFileName = String.format("MPC_PERF_log_%d.csv", System.currentTimeMillis());
-            FileOutputStream perfFile = new FileOutputStream(logFileName);
-            
-
-            // Setup
-            String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
-            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-
-            // Reset
-            operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-            System.out.format(format, operationName, Reset(channel, QUORUM_INDEX));
-            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-
-            // Setup again
-            operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
-            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-
-            // BUGBUG: Signature without previous EncryptDecrypt will fail on CryptoObjects.KeyPair.Getxi() - as no INS_KEYGEN_xxx was called
-/*             
-            //
-            //EC Operations
-            //
-            //operationName = "EC Point Addition";
-            //System.out.format(format, operationName, PointAdd(channel));
-            
-            //System.exit(0);
-           
-            operationName = "Native ECPoint Add (INS_TESTECC)";
-            for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
-                ECPoint pnt1 = randECPoint();
-                ECPoint pnt2 = randECPoint();
-                System.out.format(format, operationName, TestNativeECAdd(channel, pnt1, pnt2));
-                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-            }
-            
-            operationName = "Native ECPoint scalar multiplication (INS_TESTECC)";
-            for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
-                ECPoint pnt1 = randECPoint();
-                BigInteger scalar = randomBigNat(256);
-                System.out.format(format, operationName, TestNativeECMult(channel, pnt1, scalar));
-                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-            }
-*/            
-            
-
-            //
-            // Encrypt / Decrypt
-            //
-            PerformEncryptDecrypt(BigInteger.TEN, mpcGlobals.players, channel, perfResults, perfFile, runCfg);
-
-            // Repeated measurements if required
-            for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
-            //    PerformEncryptDecrypt(BigInteger.valueOf(rng.nextInt()), players, channel, perfResults, perfFile);
-            }
-
-            //
-            // Sign
-            //
-            //PerformSignature(BigInteger.TEN, players, channel, perfResults, perfFile);
-            PerformSignCache(mpcGlobals.players, channel, perfResults, perfFile);
-            PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, channel, perfResults, perfFile, runCfg);
-            //PerformSignature(BigInteger.valueOf(84125637), 1, players, channel, perfResults, perfFile);
-/*            
-            // Repeated measurements if required
-            long elapsed = -System.currentTimeMillis();
-            for (int i = 1; i < runCfg.numSingleOpRepeats; i++) {
-                //System.out.println("******** \n RETRY " + i + " \n");
-                PerformSignature(BigInteger.valueOf(rng.nextInt()), 1, players, channel, perfResults, perfFile);
-            }
-            elapsed += System.currentTimeMillis();
-            System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed,  elapsed / (float) runCfg.numSingleOpRepeats);
-*/
-/*            
-            //Aggregate pub keys
-            AggPubKey = ECPointDeSerialization(RetrievePubKey(channel), 0);
-            for (SimulatedPlayer player : players) {
-            	AggPubKey = AggPubKey.add(player.pub_key_EC);
-            }
-            
-            PerformSignCache(players, channel, perfResults, perfFile);
-            //PerformSignature(BigInteger.valueOf(rng.nextInt()), 1, players, channel, perfResults, perfFile);
-            
-            // Repeated measurements if required
-            for (int i = 0; i < runCfg.numSingleOpRepeats; i++) {
-                System.out.println("******** \n RETRY " + i + " \n");
-                PerformSignature(BigInteger.valueOf(rng.nextInt()), i+1, players, channel, perfResults, perfFile);
-            }
-*/            
-          
-                    
-            System.out.print("Disconnecting from card...");
-            channel.getCard().disconnect(true); // Disconnect from the card
-            System.out.println(" Done.");
-
-            // Close cvs perf file
-            perfFile.close();
-
-            // Save performance results also as latex
-            saveLatexPerfLog(perfResults);
-            
-            
-            if (runCfg.failedPerfTraps.size() > 0) {
-                System.out.println("#########################");
-                System.out.println("!!! SOME PERFORMANCE TRAPS NOT REACHED !!!");
-                System.out.println("#########################");
-                for (String trap : runCfg.failedPerfTraps) {
-                    System.out.println(trap);
-                }
-            } else {
-                System.out.println("##########################");
-                System.out.println("ALL PERFORMANCE TRAPS REACHED CORRECTLY");
-                System.out.println("##########################");
-            }
-
-            // Save performance traps into single file
-            String perfFileName = String.format("TRAP_RAW_%s.csv", experimentID);
-            SavePerformanceResults(runCfg.perfResultsSubpartsRaw, perfFileName);
-
-            // If required, modification of source code files is attempted
-            if (MODIFY_SOURCE_FILES_BY_PERF) {
-                String dirPath = "..\\!PerfSRC\\Lib\\";
-                InsertPerfInfoIntoFiles(dirPath, runCfg.cardName, experimentID, runCfg.perfResultsSubpartsRaw);
-            }            
-        }
-    }
-        
-    /**
-     * This integration test is executed in tests - don't make any temporary changes
-     * @param runCfg test configurations
-     * @throws Exception 
-     */
-    static void TestMPCProtocol_v20170520(MPCRunConfig runCfg) throws Exception {
-        mpcGlobals.Rands = new ECPoint[runCfg.numPlayers];
-        mpcGlobals.players.clear();
-
-        // SecP256r1 curve
-        prepareECCurve(mpcGlobals);
-
-	// ======================= Secret Sharing Protocol =======================
-        // Simulate all remaining players ******
-        for (short cardID = (short) (runCfg.thisCardID + 1); cardID < runCfg.numPlayers; cardID++) {
-            mpcGlobals.players.add(new SimulatedPlayer(cardID, mpcGlobals.G, mpcGlobals.n));
-        }
-
-        for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
-            CardChannel channel = Connect(runCfg);
-            GetCardInfo(channel);
-
-            perfResults.clear();
-            String logFileName = String.format("MPC_PERF_log_%d.csv", System.currentTimeMillis());
-            FileOutputStream perfFile = new FileOutputStream(logFileName);
-
-            // Setup
-            String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
-            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-
-            // Reset
-            operationName = "Reseting the card to an uninitialized state (INS_RESET)";
-            System.out.format(format, operationName, Reset(channel, QUORUM_INDEX));
-            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-
-            // Setup again
-            operationName = "Setting Up the MPC Parameters (INS_SETUP)";
-            System.out.format(format, operationName, Setup(channel, QUORUM_INDEX, runCfg.numPlayers, runCfg.thisCardID));
-            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-
-            // Encrypt / Decrypt
-            PerformEncryptDecrypt(BigInteger.TEN, mpcGlobals.players, channel, perfResults, perfFile, null);
-            //Aggregate pub keys
-            mpcGlobals.AggPubKey = ECPointDeSerialization(RetrievePubKey(channel, QUORUM_INDEX), 0);
-            for (SimulatedPlayer player : mpcGlobals.players) {
-                mpcGlobals.AggPubKey = mpcGlobals.AggPubKey.add(player.pub_key_EC);
-            }
-            // Sign (two options)
-            PerformSignCache(mpcGlobals.players, channel, perfResults, perfFile);
-            PerformSignature(BigInteger.valueOf(84125637), 1, mpcGlobals.players, channel, perfResults, perfFile, null);
-
-            System.out.print("Disconnecting from card...");
-            channel.getCard().disconnect(true); // Disconnect from the card
-            System.out.println(" Done.");
-            
-            perfFile.close(); // Close cvs perf file
-        }
-    }    
-    
     static void saveLatexPerfLog(ArrayList<Pair<String, Long>> results) {
         try {
             // Save performance results also as latex
@@ -526,42 +272,54 @@ public class MPCTestClient {
         }
     }
     
-    static void PerformEncryptDecrypt(BigInteger msgToEncDec, ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
+    static void PerformEncryptDecrypt(BigInteger msgToEncDec, ArrayList<MPCPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
         // BUGBUG: INS_KEYGEN_xxx must be called also for Sign, not only for Encrypt
         Long combinedTime = (long) 0;
 
-        // Generate KeyPair in card
-        String operationName = "Generate KeyPair (INS_KEYGEN_INIT)";
-        System.out.format(format, operationName, GenKeyPair(channel, QUORUM_INDEX));
-        writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-        combinedTime += m_lastTransmitTime;
+        for (MPCPlayer player : mpcGlobals.players) {
+            // Generate KeyPair in card
+            String operationName = "Generate KeyPair (INS_KEYGEN_INIT)";
+            System.out.format(format, operationName, player.GenKeyPair(QUORUM_INDEX));
+            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+            combinedTime += m_lastTransmitTime;
 
-        // Retrieve Hash from card
-        operationName = "Retrieve Hash of pub key (INS_KEYGEN_RETRIEVE_HASH)";
-        System.out.format(format, operationName, RetrievePubKeyHash(channel, QUORUM_INDEX));
-        writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-        combinedTime += m_lastTransmitTime;
-
-        // Push hash for all our pub keys
-        operationName = "Store pub key hash (INS_KEYGEN_STORE_HASH)";
-        for (SimulatedPlayer player : mpcGlobals.players) {
-            System.out.format(format, operationName, StorePubKeyHash(channel, QUORUM_INDEX, player.playerID, player.pub_key_Hash));
+            // Retrieve Hash from card
+            operationName = "Retrieve Hash of pub key (INS_KEYGEN_RETRIEVE_HASH)";
+            System.out.format(format, operationName, player.RetrievePubKeyHash(QUORUM_INDEX));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
         }
+        
+        // Push hash for all our pub keys
+        String operationName = "Store pub key hash (INS_KEYGEN_STORE_HASH)";
+        for (MPCPlayer playerTarget : mpcGlobals.players) {
+            for (MPCPlayer playerSource : mpcGlobals.players) {
+                if (playerTarget != playerSource) {
+                    System.out.format(format, operationName, playerTarget.StorePubKeyHash(QUORUM_INDEX, playerSource.GetPlayerID(), playerSource.GetPubKeyHash()));
+                    writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                    combinedTime += m_lastTransmitTime;
+                }
+            }
+        }
+        
         // Retrieve card's Public Key
-        operationName = "Retrieve Pub Key (INS_KEYGEN_RETRIEVE_PUBKEY)";
-        ECPoint pub_share_EC = ECPointDeSerialization(RetrievePubKey(channel, QUORUM_INDEX), 0);
-        System.out.format(format, operationName, bytesToHex(pub_share_EC.getEncoded(false)));
-        writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-        combinedTime += m_lastTransmitTime;
-
-        // Push all public keys
-        operationName = "Store Pub Key (INS_KEYGEN_STORE_PUBKEY)";
-        for (SimulatedPlayer player : mpcGlobals.players) {
-            System.out.format(format, operationName, StorePubKey(channel, QUORUM_INDEX, player.playerID, player.pub_key_EC.getEncoded(false)));
+        for (MPCPlayer player : mpcGlobals.players) {
+            operationName = "Retrieve Pub Key (INS_KEYGEN_RETRIEVE_PUBKEY)";
+            ECPoint pub_share_EC = Util.ECPointDeSerialization(player.RetrievePubKey(QUORUM_INDEX), 0);
+            System.out.format(format, operationName, bytesToHex(pub_share_EC.getEncoded(false)));
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
+        }
+        // Push all public keys
+        operationName = "Store Pub Key (INS_KEYGEN_STORE_PUBKEY)";
+        for (MPCPlayer playerTarget : mpcGlobals.players) {
+            for (MPCPlayer playerSource : mpcGlobals.players) {
+                if (playerTarget != playerSource) {
+                    System.out.format(format, operationName, playerTarget.StorePubKey(QUORUM_INDEX, playerSource.GetPlayerID(), playerSource.GetPubKey().getEncoded(false)));
+                    writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                    combinedTime += m_lastTransmitTime;
+                }
+            }
         }
 
 
@@ -573,36 +331,57 @@ public class MPCTestClient {
         */
         
         // Retrieve Aggregated Y
-        operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
-        System.out.format(format, operationName, RetrieveAggPubKey(channel, QUORUM_INDEX));
-        writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-        combinedTime += m_lastTransmitTime;
-
-        // Encrypt EC Point
-        byte[] plaintext = mpcGlobals.G.multiply(msgToEncDec).getEncoded(false);
-        operationName = String.format("Encrypt(%s) (INS_ENCRYPT)", msgToEncDec.toString()); 
-        byte[] ciphertext = Encrypt(channel, QUORUM_INDEX, plaintext, runCfg, _PROFILE_PERFORMANCE);
-        writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-        combinedTime += m_lastTransmitTime;
-        Long combinedTimeDecrypt = combinedTime - m_lastTransmitTime; // Remove encryption time from combined decryption time
+        for (MPCPlayer player : mpcGlobals.players) {
+            operationName = "Retrieve Aggregated Key (INS_KEYGEN_RETRIEVE_AGG_PUBKEY)";
+            System.out.format(format, operationName, player.RetrieveAggPubKey(QUORUM_INDEX));
+            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+            combinedTime += m_lastTransmitTime;
+        }
         
+        // Encrypt EC Point 
+        byte[] ciphertext = null;
+        byte[] plaintext = null;
+        if (!mpcGlobals.players.isEmpty()) {
+            MPCPlayer player = mpcGlobals.players.get(0); // (only first  player == card)
+            plaintext = mpcGlobals.G.multiply(msgToEncDec).getEncoded(false);
+            operationName = String.format("Encrypt(%s) (INS_ENCRYPT)", msgToEncDec.toString()); 
+            //ciphertext = player.Encrypt(QUORUM_INDEX, plaintext, runCfg, _PROFILE_PERFORMANCE);
+            ciphertext = player.Encrypt(QUORUM_INDEX, plaintext);
+            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+            combinedTime += m_lastTransmitTime;
+        }
+        
+        Long combinedTimeDecrypt = combinedTime - m_lastTransmitTime; // Remove encryption time from combined decryption time
         writePerfLog("* Combined Encrypt time", combinedTime, perfResults, perfFile);
 
         if (ciphertext.length > 0) {
             System.out.printf(String.format("%s:", operationName));
-            ECPoint c1 = ECPointDeSerialization(ciphertext, 0);
-            ECPoint c2 = ECPointDeSerialization(ciphertext, Consts.SHARE_DOUBLE_SIZE_CARRY);
+            ECPoint c1 = Util.ECPointDeSerialization(ciphertext, 0);
+            ECPoint c2 = Util.ECPointDeSerialization(ciphertext, Consts.SHARE_DOUBLE_SIZE_CARRY);
 
             // Decrypt EC Point
             // Combine all decryption shares (x_ic) (except for card which is added below) 
             ECPoint xc1_EC = mpcGlobals.curve.getInfinity();
-            for (SimulatedPlayer player : mpcGlobals.players) {
-                xc1_EC = xc1_EC.add(c1.multiply(player.priv_key_BI).negate());
-            }
+            for (MPCPlayer player : mpcGlobals.players) {
+                System.out.printf("\n");
+                operationName = "Decrypt (INS_DECRYPT)";
+                byte[] xc1_share = player.Decrypt(QUORUM_INDEX, ciphertext);
+                //byte[] xc1_share = player.Decrypt(channel, QUORUM_INDEX, ciphertext, runCfg, _PROFILE_PERFORMANCE);
+                //xc1_EC = xc1_EC.add(c1.multiply(player.GetPrivateKey()).negate());
+                
+                xc1_EC = xc1_EC.add(Util.ECPointDeSerialization(xc1_share, 0).negate()); // combine share from player
+                
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+                combinedTime += m_lastTransmitTime;
+                combinedTimeDecrypt += m_lastTransmitTime;
 
+                perfResultsList.add(new Pair("* Combined Decrypt time", combinedTimeDecrypt));
+                writePerfLog("* Combined Decrypt time", combinedTimeDecrypt, perfResults, perfFile);
+            }
+/*
             System.out.printf("\n");
             operationName = "Decrypt (INS_DECRYPT)";
-            byte[] xc1_share = Decrypt(channel, QUORUM_INDEX, ciphertext, runCfg, _PROFILE_PERFORMANCE);
+            byte[] xc1_share = player.Decrypt(channel, QUORUM_INDEX, ciphertext, runCfg, _PROFILE_PERFORMANCE);
             writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
             combinedTime += m_lastTransmitTime;
             combinedTimeDecrypt += m_lastTransmitTime;
@@ -611,7 +390,8 @@ public class MPCTestClient {
             writePerfLog("* Combined Decrypt time", combinedTimeDecrypt, perfResults, perfFile);
 
             System.out.printf(String.format("%s:", operationName));
-            xc1_EC = xc1_EC.add(ECPointDeSerialization(xc1_share, 0).negate()); // combine final share from card 
+            xc1_EC = xc1_EC.add(Util.ECPointDeSerialization(xc1_share, 0).negate()); // combine final share from card 
+*/            
             ECPoint plaintext_EC = c2.add(xc1_EC);
 
             System.out.format(format, "Decryption successful?:",
@@ -641,7 +421,7 @@ public class MPCTestClient {
      * @throws NoSuchAlgorithmException
      * @throws Exception 
      */
-    static void PerformSignCache(ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
+    static void PerformSignCache(ArrayList<MPCPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
 
         Bignat counter = new Bignat((short) 2, false);
         Bignat one = new Bignat((short) 2, false);
@@ -649,11 +429,19 @@ public class MPCTestClient {
         counter.one();
 
         for (short round = 1; round <= mpcGlobals.Rands.length; round++) {
+            boolean bFirstPlayer = true;
+            /* RF    
             mpcGlobals.Rands[round - 1] = ECPointDeSerialization(RetrieveRI(channel, QUORUM_INDEX, round), 0);
             System.out.format(format, "Retrieve Ri,n (INS_SIGN_RETRIEVE_RI):", bytesToHex(mpcGlobals.Rands[round - 1].getEncoded(false)));
-
-            for (SimulatedPlayer player : playersList) {
-                mpcGlobals.Rands[round - 1] = mpcGlobals.Rands[round - 1].add(ECPointDeSerialization(player.Gen_Rin(counter), 0));
+            */
+            for (MPCPlayer player : playersList) {
+                if (bFirstPlayer) {
+                    mpcGlobals.Rands[round - 1] = Util.ECPointDeSerialization(player.Gen_Rin(round), 0);
+                    bFirstPlayer = false;
+                }
+                else {
+                    mpcGlobals.Rands[round - 1] = mpcGlobals.Rands[round - 1].add(Util.ECPointDeSerialization(player.Gen_Rin(round), 0));
+                }
             }
             counter.add(one);
         }
@@ -679,59 +467,83 @@ public class MPCTestClient {
      * @throws NoSuchAlgorithmException
      * @throws Exception 
      */
-    static void PerformSignature(BigInteger msgToSign, int i, ArrayList<SimulatedPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
-            // Sign EC Point
-            byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);                     
-            
-            //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString());            
-            byte[] signature = Sign(channel, QUORUM_INDEX, i, plaintext_sig, mpcGlobals.Rands[i-1].getEncoded(false), runCfg, _PROFILE_PERFORMANCE);
-            
-            //Parse s from Card
-            Bignat card_s_Bn = new Bignat((short) 32, false);
-            card_s_Bn.from_byte_array((short) 32, (short) 0, signature, (short) 0);
-            BigInteger card_s_bi = new BigInteger(1, card_s_Bn.as_byte_array());
+    static void PerformSignature(BigInteger msgToSign, int counter, ArrayList<MPCPlayer> playersList, CardChannel channel, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
+        // Sign EC Point
+        byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);                     
 
-            //Parse e from Card
-            Bignat card_e_Bn = new Bignat((short) 32, false);
-            card_e_Bn.from_byte_array((short) 32, (short) 0, signature, (short) 32);
-            BigInteger card_e_BI = new BigInteger(1, card_e_Bn.as_byte_array());
+/*            
+        //String operationName = String.format("Signature(%s) (INS_SIGN)", msgToSign.toString());            
+        byte[] signature = Sign(channel, QUORUM_INDEX, i, plaintext_sig, mpcGlobals.Rands[i-1].getEncoded(false), runCfg, _PROFILE_PERFORMANCE);
 
-            //System.out.println("REALCARD : s:        " + bytesToHex(card_s_Bn.as_byte_array()));
-            //System.out.println("REALCARD : e:        " + bytesToHex(card_e_Bn.as_byte_array()) + "\n");
-            
-            BigInteger sum_s_BI = card_s_bi;
-            
-            
-            //Super bad & ugly way of converting short to Bignat (I've added a proper function in the actual lib)
-            Bignat one = new Bignat((short)2);
-            one.one();
-            Bignat counter = new Bignat((short)2);
-            counter.zero();
-            for(int j = 0; j <i; j+=1) {
-            	counter.add(one);
+        //Parse s from Card
+        Bignat card_s_Bn = new Bignat((short) 32, false);
+        card_s_Bn.from_byte_array((short) 32, (short) 0, signature, (short) 0);
+        BigInteger card_s_bi = new BigInteger(1, card_s_Bn.as_byte_array());
+
+        //Parse e from Card
+        Bignat card_e_Bn = new Bignat((short) 32, false);
+        card_e_Bn.from_byte_array((short) 32, (short) 0, signature, (short) 32);
+        BigInteger card_e_BI = new BigInteger(1, card_e_Bn.as_byte_array());
+
+        //System.out.println("REALCARD : s:        " + bytesToHex(card_s_Bn.as_byte_array()));
+        //System.out.println("REALCARD : e:        " + bytesToHex(card_e_Bn.as_byte_array()) + "\n");
+
+        BigInteger sum_s_BI = card_s_bi;
+*/            
+        if (!playersList.isEmpty()) {
+            BigInteger sum_s_BI = new BigInteger("0");
+            BigInteger card_e_BI = new BigInteger("0");
+            boolean bFirstPlayer = true; 
+            for (MPCPlayer player : playersList) {
+                if (bFirstPlayer) {
+                    sum_s_BI = player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig);
+                    card_e_BI = player.GetE();
+                    bFirstPlayer = false;
+                }
+                else {
+                    sum_s_BI = sum_s_BI.add(player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig));
+                    sum_s_BI = sum_s_BI.mod(mpcGlobals.n);
+                }
             }
-            
-            for (SimulatedPlayer player : playersList) {
-                sum_s_BI = sum_s_BI.add(player.Sign(counter, mpcGlobals.Rands[i-1], plaintext_sig));
-                sum_s_BI = sum_s_BI.mod(mpcGlobals.n);
-            }
-            
+
             System.out.format(format, "Verify Signature", Verify(plaintext_sig, mpcGlobals.AggPubKey, sum_s_BI, card_e_BI));
-        
         }
+    }
         
+    private static boolean Verify(byte[] plaintext, ECPoint pubkey, BigInteger s_bi, BigInteger e_bi) throws Exception {
 
+        // Compute rv = sG+eY
+        ECPoint rv_EC = mpcGlobals.G.multiply(s_bi); // sG
+        rv_EC = rv_EC.add(pubkey.multiply(e_bi)); // +eY
+
+        // Compute ev = H(m||rv)
+        MessageDigest md = MessageDigest.getInstance("SHA-256");
+        md.update(plaintext);
+        md.update(rv_EC.getEncoded(false));
+        byte[] ev = md.digest();
+        BigInteger ev_bi = new BigInteger(1, ev);
+        ev_bi = ev_bi.mod(mpcGlobals.n);
+
+        ///System.out.println(bytesToHex(e_bi.toByteArray()));		
+        //System.out.println(bytesToHex(ev_bi.toByteArray()));
+        if (_FAIL_ON_ASSERT) {
+            assert (e_bi.compareTo(ev_bi) == 0);
+        }
+        // compare ev with e
+        return e_bi.compareTo(ev_bi) == 0;
+    }
+    
     // Card Logistics
     private static CardChannel Connect(MPCRunConfig runCfg) throws Exception {
         switch (runCfg.testCardType) {
             case PHYSICAL: {
-                return ConnectPhysicalCard(runCfg.targetReaderIndex);
+                return CardManagement.ConnectPhysicalCard(runCfg.targetReaderIndex, runCfg.appletAID);
             }
             case JCOPSIM: {
-                return ConnectJCOPSimulator(runCfg.targetReaderIndex);
+                return CardManagement.ConnectJCOPSimulator(runCfg.targetReaderIndex, runCfg.appletAID);
             }
             case JCARDSIMLOCAL: {
-                return ConnectJCardSimLocalSimulator(runCfg.appletToSimulate); 
+                return CardManagement.ConnectJCardSimLocalSimulator(runCfg.appletToSimulate, runCfg.appletAID); 
             }
             case JCARDSIMREMOTE: {
                 return null; // Not implemented yet
@@ -742,588 +554,8 @@ public class MPCTestClient {
     }
     
     
-    private static CardChannel ConnectPhysicalCard(int targetReaderIndex) throws Exception {
-        // JCOP Simulators
-        System.out.print("Looking for physical cards... ");
-        return connectToCardByTerminalFactory(TerminalFactory.getDefault(), targetReaderIndex);
-    } 
-
-    private static CardChannel ConnectJCOPSimulator(int targetReaderIndex) throws Exception {
-        // JCOP Simulators
-        System.out.print("Looking for JCOP simulators...");
-        int[] ports = new int[]{8050};
-        return connectToCardByTerminalFactory(TerminalFactory.getInstance("JcopEmulator", ports), targetReaderIndex);
-    }
     
-    private static CardChannel ConnectJCardSimLocalSimulator(Class appletClass) throws Exception {
-        System.setProperty("com.licel.jcardsim.terminal.type", "2");
-        CAD cad = new CAD(System.getProperties());
-        JavaxSmartCardInterface simulator = (JavaxSmartCardInterface) cad.getCardInterface();
-        byte[] installData = new byte[0];
-        AID appletAID = new AID(MPC_APPLET_AID, (short) 0, (byte) MPC_APPLET_AID.length);
-
-        AID appletAIDRes = simulator.installApplet(appletAID, appletClass, installData, (short) 0, (byte) installData.length);
-        simulator.selectApplet(appletAID);
-        return new SimulatedCardChannelLocal(simulator, appletAIDRes);
-    }
-    
-    private static CardChannel connectToCardByTerminalFactory(TerminalFactory factory, int targetReaderIndex) throws CardException {
-        List<CardTerminal> terminals = new ArrayList<>();
-        
-        boolean card_found = false;
-        CardTerminal terminal = null;
-        Card card = null;
-        try { 
-            for (CardTerminal t : factory.terminals().list()) {
-                terminals.add(t);
-                if (t.isCardPresent()) {
-                    card_found = true;
-                }
-            }
-            System.out.println("Success.");
-        } catch (Exception e) {
-            System.out.println("Failed.");
-        }
-
-        if (card_found) {
-            System.out.println("Cards found: " + terminals);
-
-            terminal = terminals.get(targetReaderIndex); // Prioritize physical card over simulations
-
-            System.out.print("Connecting...");
-            card = terminal.connect("*"); // Connect with the card
-
-            System.out.println(" Done.");
-
-            System.out.print("Establishing channel...");
-            CardChannel channel = card.getBasicChannel();
-
-            System.out.println(" Done.");
-
-            // Select applet (mpcapplet)
-            System.out.println("Smartcard: Selecting applet...");
-            
-            CommandAPDU cmd = new CommandAPDU(MPC_APPLET_AID);
-            ResponseAPDU response = transmit(channel, cmd);
-        } else {
-            System.out.print("Failed to find physical card.");
-        }
-        
-        if (card != null) {
-            return card.getBasicChannel();        
-        }
-        else {
-            return null;
-        }
-    }
-
-
-
-    
-        public static short getShort(byte[] buffer, int offset) {
-            return ByteBuffer.wrap(buffer, offset, 2).order(ByteOrder.BIG_ENDIAN).getShort();
-        }        
-        
-        private static boolean GetCardInfo(CardChannel channel) throws Exception {
-            CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_PERSONALIZE_GETCARDINFO, 0, 0);
-            ResponseAPDU response = transmit(channel, cmd);
-
-            // Parse response 
-            if (response.getSW() == (Consts.SW_SUCCESS & 0xffff)) {
-                int offset = 0;
-                byte[] data = response.getData();
-                System.out.println("---CARD STATE -------");
-                assert(data[offset] == Consts.TLV_TYPE_CARDUNIQUEDID);
-                offset++;
-                short len = getShort(data, offset);
-                offset += 2;
-                System.out.println(String.format("CardIDLong:\t\t\t %s", toHex(data, offset, len)));
-                offset += len;
-
-                assert (data[offset] == Consts.TLV_TYPE_KEYPAIR_STATE);
-                offset++;
-                assert(getShort(data, offset) == 2);
-                offset += 2;
-                System.out.println(String.format("KeyPair state:\t\t\t %d", getShort(data, offset)));
-                offset += 2;
-                assert (data[offset] == Consts.TLV_TYPE_EPHIMERAL_STATE);
-                offset++;
-                assert (getShort(data, offset) == 2);
-                offset += 2;
-                System.out.println(String.format("EphiKey state:\t\t\t %d", getShort(data, offset)));
-                offset += 2;
-                
-                assert (data[offset] == Consts.TLV_TYPE_MEMORY);
-                offset++;
-                assert (getShort(data, offset) == 6);
-                offset += 2;
-                System.out.println(String.format("MEMORY_PERSISTENT:\t\t %d bytes", getShort(data, offset)));
-                offset += 2;
-                System.out.println(String.format("MEMORY_TRANSIENT_RESET:\t\t %d bytes", getShort(data, offset)));
-                offset += 2;
-                System.out.println(String.format("MEMORY_TRANSIENT_DESELECT:\t %d bytes", getShort(data, offset)));
-                offset += 2;
-                System.out.println("-----------------");
-                
-                assert (data[offset] == Consts.TLV_TYPE_COMPILEFLAGS);
-                offset++;
-                assert (getShort(data, offset) == 4);
-                offset += 2;
-                System.out.println(String.format("Consts.MAX_N_PLAYERS:\t\t %d", getShort(data, offset)));
-                offset += 2;
-                System.out.println(String.format("DKG.PLAYERS_IN_RAM:\t\t %b", (data[offset] == 0) ? false : true));
-                offset++;
-                System.out.println(String.format("DKG.COMPUTE_Y_ONTHEFLY:\t\t %b ", (data[offset] == 0) ? false : true));
-                offset++;
-                System.out.println("-----------------");
-                
-                assert (data[offset] == Consts.TLV_TYPE_GITCOMMIT);
-                offset++;
-                len = getShort(data, offset);
-                assert (len == 4);
-                offset += 2;
-                System.out.println(String.format("Git commit tag:\t\t\t 0x%s", toHex(data, offset, len)));
-                offset += len;
-                System.out.println("-----------------");
-
-                assert (data[offset] == Consts.TLV_TYPE_EXAMPLEBACKDOOR);
-                offset++;
-                len = getShort(data, offset);
-                assert (len == 1);
-                offset += 2;
-                if (data[offset] == (byte) 0) {
-                    System.out.println("Applet is in normal (non-backdoored) state");
-                }
-                else {
-                    System.out.println("WARNING: Applet is in example 'backdoored' state with fixed private key");
-                }
-                offset += len;
-                System.out.println("-----------------");
-            }
-            
-            return checkSW(response);
-        }
-        
-        
-    static byte[] preparePacketData(byte operationCode, short param1) {
-        return preparePacketData(operationCode, 1, param1, null, null);
-    }
-    static byte[] preparePacketData(byte operationCode, short param1, short param2) {
-        return preparePacketData(operationCode, 2, param1, param2, null);
-    }
-    static byte[] preparePacketData(byte operationCode, short param1, short param2, short param3) {
-        return preparePacketData(operationCode, 3, param1, param2, param3);
-    }
-    static byte[] preparePacketData(byte operationCode, int numShortParams, Short param1, Short param2, Short param3) {
-        int offset = 0;
-        byte[] cmd = new byte[1 + 2 + 1 + 2 + numShortParams*2];
-        cmd[offset] = Consts.TLV_TYPE_MPCINPUTPACKET;
-        offset++;
-        shortToByteArray((short) (cmd.length - 3), cmd, offset);
-        offset += 2; 
-        cmd[offset] = operationCode;
-        offset++;
-        shortToByteArray((short) (2*2), cmd, offset);
-        offset += 2; 
-        if (numShortParams >= 1) {
-            offset = shortToByteArray(param1, cmd, offset);
-        }
-        if (numShortParams >= 2) {
-            offset = shortToByteArray(param2, cmd, offset);
-        }
-        if (numShortParams >= 3) {
-            offset = shortToByteArray(param3, cmd, offset);
-        }
-        
-        return cmd;
-    }    
-    /* Instructions */
-    private static boolean Setup(CardChannel channel, short quorumIndex, short numPlayers, short thisPlayerID) throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_QUORUM_SETUP_NEW, quorumIndex, numPlayers, thisPlayerID);
-
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_SETUP_NEW, 0,
-                0, packetData);
-        ResponseAPDU response = transmit(channel, cmd);
-
-        return checkSW(response);
-    }
-
-    private static boolean Reset(CardChannel channel, short quorumIndex) throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_QUORUM_RESET, quorumIndex);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_QUORUM_RESET, 0x00, 0x00, packetData);
-        ResponseAPDU response = transmit(channel, cmd);
-        return checkSW(response);
-    }
-
-    private static boolean GenKeyPair(CardChannel channel, short quorumIndex) throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_INIT, quorumIndex);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_INIT, 0x00,
-                0x00, packetData);
-        ResponseAPDU response = transmit(channel, cmd);
-        return checkSW(response);
-    }
-
-    private static boolean RetrievePubKeyHash(CardChannel channel, short quorumIndex)
-            throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_COMMITMENT, quorumIndex);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_RETRIEVE_COMMITMENT,
-                0x00, 0x00, packetData);
-        ResponseAPDU response = transmit(channel, cmd);
-        return checkSW(response);
-    }
-
-    private static boolean StorePubKeyHash(CardChannel channel, short quorumIndex, short id,
-            byte[] hash_arr) throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_COMMITMENT, quorumIndex, id, (short) hash_arr.length);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_COMMITMENT,
-                0x00, 0x00, concat(packetData, hash_arr));
-        ResponseAPDU response = transmit(channel, cmd);
-        return checkSW(response);
-    }
-
-    private static boolean StorePubKey(CardChannel channel, short quorumIndex, short id,
-            byte[] pub_arr) throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_STORE_PUBKEY, quorumIndex, id, (short) pub_arr.length);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_STORE_PUBKEY,
-                0x00, 0x00, concat(packetData, pub_arr));
-        ResponseAPDU response = transmit(channel, cmd);
-        return checkSW(response);
-    }
-
-    private static boolean RetrievePrivKey_DebugOnly(CardChannel channel)
-            throws Exception {
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-                Consts.BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY, 0x0, 0x0);
-        ResponseAPDU response = transmit(channel, cmd);
-
-        // Store Secret
-        Bignat tmp_BN = new Bignat(Consts.SHARE_BASIC_SIZE, false);
-        tmp_BN.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, (response.getData()),
-                (short) 0);
-        mpcGlobals.secret = Convenience.bi_from_bn(tmp_BN);
-
-        return checkSW(response);
-    }
-
-    private static byte[] RetrievePubKey(CardChannel channel, short quorumIndex) throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, quorumIndex);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-                Consts.INS_KEYGEN_RETRIEVE_PUBKEY, 0x00, 0x00, packetData);
-        ResponseAPDU response = transmit(channel, cmd);
-
-        mpcGlobals.PubKey = ECPointDeSerialization(response.getData(), 0); // Store Pub
-
-        // return checkSW(response);
-        return response.getData();
-    }
-
-    private static boolean RetrieveAggPubKey(CardChannel channel, short quorumIndex)
-            throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, quorumIndex);
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-                Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, 0x00, 0x00, packetData);
-        ResponseAPDU response = transmit(channel, cmd);
-
-        mpcGlobals.AggPubKey = ECPointDeSerialization(response.getData(), 0); // Store aggregated pub
-
-        return checkSW(response);
-    }
-
-        
-    public static byte[] concat(byte[] a, byte[] b) {
-        int aLen = a.length;
-        int bLen = b.length;
-        byte[] c = new byte[aLen + bLen];
-        System.arraycopy(a, 0, c, 0, aLen);
-        System.arraycopy(b, 0, c, aLen, bLen);
-        return c;
-    }        
-    private static boolean TestNativeECAdd(CardChannel channel, ECPoint point1, ECPoint point2) throws Exception {
-        // addPoint
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_TESTECC, (byte) 1, point1.getEncoded(false).length, concat(point1.getEncoded(false), point2.getEncoded(false)));
-        ResponseAPDU response = transmit(channel, cmd);
-        return checkSW(response);
-    }        
-    private static boolean TestNativeECMult(CardChannel channel, ECPoint point1, BigInteger scalar) throws Exception {
-        // multiply by scalar
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_TESTECC, (byte) 2, point1.getEncoded(false).length, concat(point1.getEncoded(false), scalar.toByteArray()));
-        ResponseAPDU response = transmit(channel, cmd);
-        return checkSW(response);
-    }
-	/*
-	 * private static boolean ReconstructPubKey(CardChannel channel) throws
-	 * Exception {
-	 * 
-	 * 
-	 * ECPoint sum = ECPointDeSerialization(RetrievePubShare(channel, (short)
-	 * 0).toByteArray());
-	 * 
-	 * for (short pid=1; pid<(NUM_PLAYERS); pid++){ sum =
-	 * sum.add(ECPointDeSerialization(RetrievePubShare(channel, (short)
-	 * pid).toByteArray())); }
-	 * 
-	 * //System.out.println("-------------------------------------");
-	 * //System.out.println(bytesToHex(PubKey.getEncoded(false)));
-	 * //System.out.println(bytesToHex(sum.getEncoded(false))); return
-	 * PubKey.equals(sum);//sec_new.equals(secret); }
-	 */
-        private static byte[] Encrypt(CardChannel channel, short quorumIndex, byte[] plaintext)
-                throws Exception {
-            return Encrypt(channel, quorumIndex, plaintext, null, false);
-        }
-	private static byte[] Encrypt(CardChannel channel, short quorumIndex, byte[] plaintext, MPCRunConfig runCfg, boolean bProfilePerf)
-			throws Exception {
-            byte[] packetData = preparePacketData(Consts.INS_ENCRYPT, quorumIndex, (short) plaintext.length);
-            if (!bProfilePerf) {            
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0, concat(packetData, plaintext));
-		ResponseAPDU response = transmit(channel, cmd);
-		return response.getData();
-            } else {
-                transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
-
-                short[] PERFSTOPS_Encrypt = {PM.TRAP_CRYPTOPS_ENCRYPT_1, PM.TRAP_CRYPTOPS_ENCRYPT_2, PM.TRAP_CRYPTOPS_ENCRYPT_3, PM.TRAP_CRYPTOPS_ENCRYPT_4, PM.TRAP_CRYPTOPS_ENCRYPT_5, PM.TRAP_CRYPTOPS_ENCRYPT_6, PM.TRAP_CRYPTOPS_ENCRYPT_COMPLETE};
-                runCfg.perfStops = PERFSTOPS_Encrypt;
-                runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_ENCRYPT_COMPLETE;
-                long avgOpTime = 0;
-                String opName = "Encrypt: ";
-                for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
-                    CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0, concat(packetData, plaintext));
-                    avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
-                }
-                System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
-                transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
-
-                return Encrypt(channel, quorumIndex, plaintext, runCfg, false);
-            }                
-	}
-
-        private static byte[] Decrypt(CardChannel channel, short quorumIndex, byte[] ciphertext)
-                throws Exception {
-            return Decrypt(channel, quorumIndex, ciphertext, null, false);
-        }        
-	private static byte[] Decrypt(CardChannel channel, short quorumIndex, byte[] ciphertext, MPCRunConfig runCfg, boolean bProfilePerf)
-			throws Exception {
-            byte[] packetData = preparePacketData(Consts.INS_DECRYPT, quorumIndex, (short) ciphertext.length);
-            if (!bProfilePerf) {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, 0x0, concat(packetData, ciphertext));
-		ResponseAPDU response = transmit(channel, cmd);
-
-		return response.getData();
-            }
-            else {
-                transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
-
-                short[] PERFSTOPS_Decrypt = {PM.TRAP_CRYPTOPS_DECRYPTSHARE_1, PM.TRAP_CRYPTOPS_DECRYPTSHARE_2, PM.TRAP_CRYPTOPS_DECRYPTSHARE_COMPLETE};
-                runCfg.perfStops = PERFSTOPS_Decrypt;
-                runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_DECRYPTSHARE_COMPLETE;
-                long avgOpTime = 0;
-                String opName = "Decrypt: ";
-                for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
-                    CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, 0x0, concat(packetData, ciphertext));
-                    avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
-                }
-                System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
-                transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
-
-                return Decrypt(channel, quorumIndex, ciphertext, runCfg, false);                
-            }
-	}
-
-    private static void SetBackdoorExample(CardChannel channel, boolean bMakeBackdoored)
-            throws Exception {
-
-        CommandAPDU cmd;
-        if (bMakeBackdoored) {
-            // If to be backdoored, set p1 to 0x55
-            cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SET_BACKDOORED_EXAMPLE, 0x55, 0x00, 0x00);
-        }
-        else {
-            cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SET_BACKDOORED_EXAMPLE, 0x00, 0x00, 0x00);
-        }
-        ResponseAPDU response = transmit(channel, cmd);
-    }
-        
-
-	// /////////////////////////////////////////////////////////////////////////////////
-	// //////////////////////// SIGN
-	// ////////////////////////////////////////////////////////////////////////////////
-/*
-	private static boolean GenRI(CardChannel channel) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN_INIT, 0x00, 0x00);
-		ResponseAPDU response = transmit(channel, cmd);
-		return checkSW(response);
-	}
-
-	private static boolean RetrieveRIHash(CardChannel channel) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN_RETRIEVE_HASH,
-				0x00, 0x00);
-		ResponseAPDU response = transmit(channel, cmd);
-		return checkSW(response);
-	}
-
-	private static boolean StoreRIHash(CardChannel channel, int id,
-			byte[] hash_arr) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN_STORE_HASH, id,
-				0x00, hash_arr);
-		ResponseAPDU response = transmit(channel, cmd);
-		return checkSW(response);
-	}
-	
-	private static boolean StoreRI(CardChannel channel, int id, byte[] Ri_arr) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN_STORE_RI, id,	0x00, Ri_arr);
-		ResponseAPDU response = transmit(channel, cmd);
-		return checkSW(response);
-	}
-	
-	private static boolean StoreRI_N_Hash(CardChannel channel, int id, byte[] Ri_arr, byte[] Hash_Ri_arr) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN_STORE_RI_N_HASH, id,	0x00, joinArray(Ri_arr, Hash_Ri_arr));
-		ResponseAPDU response = transmit(channel, cmd);
-		return checkSW(response);
-	}
-
-	private static boolean RetrieveKI(CardChannel channel) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.BUGBUG_INS_SIGN_RETRIEVE_KI,
-				0x0, 0x0);
-		ResponseAPDU response = transmit(channel, cmd);
-
-		// Store Secret
-		Bignat tmp_BN = new Bignat(Consts.SHARE_SIZE_32, false);
-		tmp_BN.from_byte_array(Consts.SHARE_SIZE_32, (short) 0, (response.getData()),
-				(short) 0);
-		secret = Convenience.bi_from_bn(tmp_BN);
-
-		return checkSW(response);
-	}
-*/
-	private static byte[] RetrieveRI(CardChannel channel, short quorumIndex, short i) throws Exception {
-            byte[] packetData = preparePacketData(Consts.INS_SIGN_RETRIEVE_RI, quorumIndex, (short) i);
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN_RETRIEVE_RI,
-				0x00, 0x00, packetData);
-		ResponseAPDU response = transmit(channel, cmd);
-
-		//We do nothing with the key, as we just use the Aggregated R in the test cases
-
-		// return checkSW(response);
-		return response.getData();
-	}
-/*	
-	private static byte[] RetrieveRI_N_Hash(CardChannel channel) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN_RETRIEVE_RI_N_HASH, 0x00, 0x00);
-		ResponseAPDU response = transmit(channel, cmd);
-
-		//We do nothing with the key, as we just use the Aggregated R, and the hashes are not validated
-		
-		// return checkSW(response);
-		return response.getData();
-	}
-	
-
-	private static boolean RetrieveAggR(CardChannel channel) throws Exception {
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.BUGBUG_INS_SIGN_RETRIEVE_R,
-				0x00, 0x00);
-		ResponseAPDU response = transmit(channel, cmd);
-
-		R_EC = ECPointDeSerialization(response.getData(), 0); // Store R
-
-		return checkSW(response);
-	}
-*/
-	/*
-    private static byte[] Sign(CardChannel channel, byte[] plaintext)
-        throws Exception {
-        return Sign(channel, plaintext, false);
-    }
-    */
-	
-    private static byte[] Sign(CardChannel channel, short quorumIndex, int round, byte[] plaintext, byte[] Rn, MPCRunConfig runCfg, boolean bProfilePerf) throws Exception {
-/*
-        // Repeated measurements if required
-        long elapsed = -System.currentTimeMillis();
-        int repeats = 100000;
-        for (int i = 1; i < repeats; i++) {
-            plaintext[5] = (byte) (i % 256);
-            CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(plaintext, Rn));
-            ResponseAPDU response = transmit(channel, cmd);
-        }
-        elapsed += System.currentTimeMillis();
-        System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed, elapsed / (float) repeats);
-
-         /**/
-        byte[] packetData = preparePacketData(Consts.INS_SIGN, quorumIndex, (short) round, (short) ((short) plaintext.length + (short) Rn.length));
-        if (!bProfilePerf) {
-        	CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(packetData, concat(plaintext, Rn)));
-        	ResponseAPDU response = transmit(channel, cmd);
-
-        	return response.getData();
-        }
-        else {
-            // Repeated measurements if required
-            transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
-
-            short[] PERFSTOPS_Decrypt = {PM.TRAP_CRYPTOPS_SIGN_1, PM.TRAP_CRYPTOPS_SIGN_2, PM.TRAP_CRYPTOPS_SIGN_3, PM.TRAP_CRYPTOPS_SIGN_4, PM.TRAP_CRYPTOPS_SIGN_5, PM.TRAP_CRYPTOPS_SIGN_6, PM.TRAP_CRYPTOPS_SIGN_7, PM.TRAP_CRYPTOPS_SIGN_8, PM.TRAP_CRYPTOPS_SIGN_9, PM.TRAP_CRYPTOPS_SIGN_10, PM.TRAP_CRYPTOPS_SIGN_COMPLETE};
-            runCfg.perfStops = PERFSTOPS_Decrypt;
-            runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_SIGN_COMPLETE;
-            long avgOpTime = 0;
-            String opName = "Sign: ";
-            for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
-                CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(packetData, concat(plaintext, Rn)));
-                avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
-            }
-            System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
-            transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
-
-            return Sign(channel, quorumIndex, round, plaintext, Rn, runCfg, false);
-        }
-    }
-        
-        
-	private static boolean PointAdd(CardChannel channel) throws Exception {
-        byte[] PointA = mpcGlobals.G.multiply(BigInteger.valueOf(10)).getEncoded(false);
-        byte[] PointB = mpcGlobals.G.multiply(BigInteger.valueOf(20)).getEncoded(false);
-
-		CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ADDPOINTS, 0x00, 0x00, concat(PointA, PointB));
-		ResponseAPDU response = transmit(channel, cmd);
-		return checkSW(response);
-	}    
-    
-
-	private static boolean Verify(byte[] plaintext, ECPoint pubkey, BigInteger s_bi, BigInteger e_bi) throws Exception {
-
-		// Compute rv = sG+eY
-		ECPoint rv_EC = mpcGlobals.G.multiply(s_bi); // sG
-		rv_EC = rv_EC.add(pubkey.multiply(e_bi)); // +eY
-
-		// Compute ev = H(m||rv)
-		MessageDigest md = MessageDigest.getInstance("SHA-256");
-		md.update(plaintext);
-		md.update(rv_EC.getEncoded(false));
-		byte[] ev = md.digest();
-		BigInteger ev_bi = new BigInteger(1, ev);
-		ev_bi = ev_bi.mod(mpcGlobals.n);
-
-		//System.out.println(bytesToHex(e_bi.toByteArray()));		
-		//System.out.println(bytesToHex(ev_bi.toByteArray()));
-
-        if (_FAIL_ON_ASSERT) {
-            assert(e_bi.compareTo(ev_bi) == 0);
-        }
-		// compare ev with e
-		return e_bi.compareTo(ev_bi) == 0;
-	}
-
 	/* Utils */
-	public static short readShort(byte[] data, int offset) {
-		return (short) (((data[offset] << 8)) | ((data[offset + 1] & 0xff)));
-	}
-
-	public static byte[] shortToByteArray(int s) {
-		return new byte[] { (byte) ((s & 0xFF00) >> 8), (byte) (s & 0x00FF) };
-	}
-        public static int shortToByteArray(short s, byte[] array, int arrayOffset) {
-            array[arrayOffset] = (byte) ((s & 0xFF00) >> 8);
-            array[arrayOffset + 1] = (byte) (s & 0x00FF);
-            return arrayOffset + 2; 
-        }
 
 	public static byte[] SerializeBigInteger(BigInteger BigInt) {
 
@@ -1400,32 +632,6 @@ public class MPCTestClient {
 		return ECPoint_serial;
 	}
 
-	private static ECPoint ECPointDeSerialization(byte[] serialized_point,
-			int offset) {
-
-		byte[] x_b = new byte[256 / 8];
-		byte[] y_b = new byte[256 / 8];
-
-		// System.out.println("Serialized Point: " + toHex(serialized_point));
-
-		// src -- This is the source array.
-		// srcPos -- This is the starting position in the source array.
-		// dest -- This is the destination array.
-		// destPos -- This is the starting position in the destination data.
-		// length -- This is the number of array elements to be copied.
-
-		System.arraycopy(serialized_point, offset + 1, x_b, 0, Consts.SHARE_BASIC_SIZE);
-		BigInteger x = new BigInteger(bytesToHex(x_b), 16);
-		// System.out.println("X:" + toHex(x_b));
-		System.arraycopy(serialized_point, offset + (Consts.SHARE_BASIC_SIZE + 1), y_b, 0, Consts.SHARE_BASIC_SIZE);
-		BigInteger y = new BigInteger(bytesToHex(y_b), 16);
-		// System.out.println("Y:" + toHex(y_b));
-
-		ECPoint point = mpcGlobals.curve.createPoint(x, y);
-
-		return point;
-	}
-
 	private static ECPoint randECPoint() throws Exception {
 		ECParameterSpec ecSpec_named = ECNamedCurveTable
 				.getParameterSpec("secp256r1"); // NIST P-256
@@ -1436,55 +642,7 @@ public class MPCTestClient {
 		return apub.getQ();
 	}
 
-	private static boolean checkSW(ResponseAPDU response) {
-		if (response.getSW() != (Consts.SW_SUCCESS & 0xffff)) {
-			System.err.printf("Received error status: %02X.\n",
-					response.getSW());
-			// System.exit(1);
-                        if (_FAIL_ON_ASSERT) {
-                            assert(false); // break on error
-                        }
-			return false;
-		}
-		return true;
-	}
 
-	private static ResponseAPDU transmit(CardChannel channel, CommandAPDU cmd)
-			throws CardException {
-		if (_DEBUG == true)
-			log(cmd);
-                
-                long elapsed = -System.currentTimeMillis();
-		ResponseAPDU response = channel.transmit(cmd);
-                elapsed += System.currentTimeMillis();
-                m_lastTransmitTime = elapsed;
-		if (_DEBUG == true)
-			log(response, elapsed);
-
-		return response;
-	}
-
-	private static void log(CommandAPDU cmd) {
-		System.out.printf("--> %s\n", toHex(cmd.getBytes()),
-				cmd.getBytes().length);
-	}
-
-        private static void log(ResponseAPDU response, long time) {
-            String swStr = String.format("%02X", response.getSW());
-            byte[] data = response.getData();
-            if (data.length > 0) {
-                System.out.printf("<-- %s %s (%d)\n", toHex(data), swStr,
-                        data.length);
-            } else {
-                System.out.printf("<-- %s\n", swStr);
-            }
-            if (time > 0) {
-                System.out.printf(String.format("Elapsed time %d ms\n", time));
-            }
-        }        
-	private static void log(ResponseAPDU response) {
-            log(response, 0);
-	}
 /* unused
 	private static Card waitForCard(CardTerminals terminals)
 			throws CardException {
@@ -2155,6 +1313,7 @@ public class MPCTestClient {
         return PM.TRAP_UNDEFINED;
     }
     
+/* TODO: move to card where channel is known   
     static long PerfAnalyzeCommand(String operationName, CommandAPDU cmd, CardChannel channel, MPCRunConfig cfg) throws CardException, IOException {
         System.out.println(operationName);
         short prevPerfStop = PM.PERF_START;
@@ -2162,7 +1321,7 @@ public class MPCTestClient {
         long lastFromPrevTime = 0;
         try {
             for (short perfStop : cfg.perfStops) {
-                System.arraycopy(shortToByteArray(perfStop), 0, PERF_COMMAND, ISO7816.OFFSET_CDATA, 2); // set required stop condition
+                System.arraycopy(Util.shortToByteArray(perfStop), 0, PERF_COMMAND, ISO7816.OFFSET_CDATA, 2); // set required stop condition
                 String operationNamePerf = String.format("%s_%s", operationName, getPerfStopName(perfStop));
                 transmit(channel, new CommandAPDU(PERF_COMMAND)); // set performance trap
                 ResponseAPDU response = transmit(channel, cmd); // execute target operation
@@ -2200,7 +1359,7 @@ public class MPCTestClient {
 
         return lastFromPrevTime;
     }    
-    
+*/    
     static void SavePerformanceResults(HashMap<Short, Pair<Short, Long>> perfResultsSubpartsRaw, String fileName) throws FileNotFoundException, IOException {
         // Save performance traps into single file
         FileOutputStream perfLog = new FileOutputStream(fileName);

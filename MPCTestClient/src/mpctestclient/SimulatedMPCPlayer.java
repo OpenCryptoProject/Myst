@@ -13,8 +13,7 @@ import ds.ov2.bignat.Bignat;
  *
  * @author Vasilios Mavroudis and Petr Svenda
  */
-class SimulatedPlayer {
-
+class SimulatedMPCPlayer implements MPCPlayer {
     public short playerID;
 
     //Key Pair
@@ -34,7 +33,7 @@ class SimulatedPlayer {
     public ECPoint Ri_EC_pre;
     public byte[] Ri_Hash_pre;
 
-    public SimulatedPlayer(short playerID, ECPoint G, BigInteger n) throws NoSuchAlgorithmException {
+    public SimulatedMPCPlayer(short playerID, ECPoint G, BigInteger n) throws NoSuchAlgorithmException {
         this.playerID = playerID;
         curve_G = G;
         curve_n = n;
@@ -45,12 +44,96 @@ class SimulatedPlayer {
         random.nextBytes(secret_seed);
     }
 
-    public final void SetPrivKey(BigInteger privkey) {
+    //
+    // MPCPlayer methods
+    //
+    @Override
+    public byte[] Gen_Rin(short i) throws NoSuchAlgorithmException, Exception {
+        Bignat counter = Util.makeBignatFromValue(i);
+        ECPoint Rin = curve_G.multiply(new BigInteger(PRF(counter, this.secret_seed)));
+        return Rin.getEncoded(false);
+    }
+    
+    @Override
+    public ECPoint GetPubKey() {
+        return pub_key_EC;
+    }
+    @Override
+    public short GetPlayerID() {
+        return playerID;
+    }
+    @Override
+    public byte[] GetPubKeyHash() {
+        return pub_key_Hash;
+    }
+    @Override
+    public BigInteger GetE() {
+        return null; 
+    }
+
+    @Override
+    public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerID) throws Exception {
+        // TODO: at the moment, simulated player performs nothing
+        return true;
+    }
+    @Override
+    public boolean Reset(short quorumIndex) throws Exception {
+        // TODO: at the moment, simulated player performs nothing
+        return true;
+    }
+    @Override
+    public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext) throws Exception {
+        Bignat roundBn = Util.makeBignatFromValue(round);
+        return Sign(roundBn, Util.ECPointDeSerialization(Rn, 0), plaintext);
+    }
+    @Override
+    public boolean GenKeyPair(short quorumIndex) throws Exception {
+        this.KeyGen();
+        return true;
+    }
+    @Override
+    public boolean RetrievePubKeyHash(short quorumIndex) throws Exception {
+        return true;
+    }
+    @Override
+    public boolean StorePubKeyHash(short quorumIndex, short playerIndex, byte[] hash_arr) throws Exception {
+        // TODO: store pub key hash optionally
+        return true;
+    }
+    @Override
+    public byte[] RetrievePubKey(short quorumIndex) throws Exception {
+        return pub_key_Hash;
+    }
+    @Override
+    public boolean StorePubKey(short quorumIndex, short playerIndex, byte[] pub_arr) throws Exception {
+        return true;
+    }
+    @Override
+    public boolean RetrieveAggPubKey(short quorumIndex) throws Exception {
+        return true;
+    }
+    @Override
+    public byte[] Encrypt(short quorumIndex, byte[] plaintext) throws Exception {
+        return null; // implement encryption for simulated players 
+    }
+    @Override
+    public byte[] Decrypt(short quorumIndex, byte[] ciphertext) throws Exception {
+        ECPoint c1 = Util.ECPointDeSerialization(ciphertext, 0);
+        ECPoint xc1_share = c1.multiply(priv_key_BI).negate();
+        return xc1_share.getEncoded(false);
+    }
+    
+    
+    
+    //
+    // SimulatedMPCPlayer helper methods
+    //
+    private final void SetPrivKey(BigInteger privkey) {
         priv_key_BI = privkey;
         pub_key_EC = curve_G.multiply(priv_key_BI);
     }
 
-    public final void KeyGen() throws NoSuchAlgorithmException {
+    private final void KeyGen() throws NoSuchAlgorithmException {
         // Keypair + hash
         SecureRandom rnd = new SecureRandom();
         priv_key_BI = new BigInteger(256, rnd);
@@ -65,42 +148,7 @@ class SimulatedPlayer {
         pub_key_Hash = md.digest();
     }
 
-    /*
-     public void Gen_Ri() throws NoSuchAlgorithmException{
-     // Temp r for signing + hash
-     SecureRandom rnd = new SecureRandom();
-     k_Bn = new BigInteger(256, rnd);
-     Ri_EC = G.multiply(k_Bn);
-     MessageDigest md = MessageDigest.getInstance("SHA-256");
-     md.reset();
-     md.update(Ri_EC.getEncoded(false));
-     Ri_Hash = md.digest();
-       
-     //For preloading
-     k_Bn_pre = new BigInteger(256, rnd);
-     Ri_EC_pre = G.multiply(k_Bn_pre);
-     md.reset();
-     md.update(Ri_EC_pre.getEncoded(false));
-     Ri_Hash_pre = md.digest();
-     }*/
-    /*
-     public void Gen_next_Ri() throws NoSuchAlgorithmException{
-     //Previously preloaded pair is now the current one
-     k_Bn = k_Bn_pre;
-     Ri_EC = Ri_EC_pre;
-     Ri_Hash = Ri_Hash_pre;
-       
-     //For preloading
-     SecureRandom rnd = new SecureRandom();
-     k_Bn_pre = new BigInteger(256, rnd);
-     Ri_EC_pre = G.multiply(k_Bn_pre);
-     MessageDigest md = MessageDigest.getInstance("SHA-256");
-     md.reset();
-     md.update(Ri_EC_pre.getEncoded(false));
-     Ri_Hash_pre = md.digest();
-     }
-     */
-    public BigInteger Sign(Bignat i, ECPoint R_EC, byte[] plaintext) throws NoSuchAlgorithmException {
+    private BigInteger Sign(Bignat i, ECPoint R_EC, byte[] plaintext) throws NoSuchAlgorithmException {
         //Gen e (e will be the same in all signature shares)
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         //System.out.println("Simulated: Plaintext:" + client.bytesToHex(plaintext));
@@ -116,7 +164,7 @@ class SimulatedPlayer {
         BigInteger s_i_BI = this.k_Bn.subtract(e_BI.multiply(this.priv_key_BI));
         s_i_BI = s_i_BI.mod(curve_n);
 
-        /*I'm cheating a bit here, and use the e returned by the JC.
+        /* BUGBUG: I'm cheating a bit here, and use the e returned by the JC.
          Btw e is always the same, so it can actually be computed 
          on the host if this helps with optimizing the applet */
         //System.out.println("Simulated: s:        " + client.bytesToHex(s_i_BI.toByteArray()));
@@ -124,17 +172,7 @@ class SimulatedPlayer {
         return s_i_BI;
     }
 
-    public byte[] Gen_Rin(Bignat i) throws NoSuchAlgorithmException {
-        ECPoint Rin = curve_G.multiply(new BigInteger(PRF(i, this.secret_seed)));
-        return Rin.getEncoded(false);
-    }
-
-    public byte[] Gen_Rin(Bignat i, byte[] seed) throws NoSuchAlgorithmException {
-        ECPoint Rin = curve_G.multiply(new BigInteger(PRF(i, seed)));
-        return Rin.getEncoded(false);
-    }
-
-    public byte[] PRF(Bignat i, byte[] seed) throws NoSuchAlgorithmException {
+    private byte[] PRF(Bignat i, byte[] seed) throws NoSuchAlgorithmException {
         MessageDigest md = MessageDigest.getInstance("SHA-256");
         md.reset();
         md.update(i.as_byte_array());
