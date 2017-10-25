@@ -1,4 +1,4 @@
-package mpcclient;
+package mpctestclient;
 
 import java.io.FileOutputStream;
 import java.util.ArrayList;

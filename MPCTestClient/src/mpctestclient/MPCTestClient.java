@@ -1,4 +1,4 @@
-package mpcclient;
+package mpctestclient;
 
 
 import com.licel.jcardsim.io.CAD;
@@ -128,8 +128,8 @@ public class MPCTestClient {
             }
             
             MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
-            runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
-            //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
+            //runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
+            runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 1;
             //runCfg.numWholeTestRepeats = 10; more than one repeat will fail on simulator due to change of address of allocated objects
             runCfg.numPlayers = 4;

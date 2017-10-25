@@ -1,6 +1,6 @@
-package mpcclient;
+package mpctestclient;
 
-import static mpcclient.MPCTestClient.G;
+import static mpctestclient.MPCTestClient.G;
 
 import java.math.BigInteger;
 import java.security.MessageDigest;

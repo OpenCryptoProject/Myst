@@ -1,4 +1,4 @@
-package mpcclient;
+package mpctestclient;
 
 import javax.smartcardio.ATR;
 import javax.smartcardio.Card;

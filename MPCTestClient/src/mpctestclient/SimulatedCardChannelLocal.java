@@ -1,4 +1,4 @@
-package mpcclient;
+package mpctestclient;
 
 import com.licel.jcardsim.io.JavaxSmartCardInterface;
 import java.nio.ByteBuffer;
