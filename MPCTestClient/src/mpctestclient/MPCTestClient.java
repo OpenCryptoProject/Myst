@@ -97,7 +97,7 @@ public class MPCTestClient {
             runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 1;
             //runCfg.numWholeTestRepeats = 10; more than one repeat will fail on simulator due to change of address of allocated objects, runs ok on real card
-            runCfg.numPlayers = 4;
+            runCfg.numPlayers = 2;
             runCfg.cardName = "gd60";
             
             MPCProtocol_demo(runCfg);
@@ -129,7 +129,8 @@ public class MPCTestClient {
         short cardID = runCfg.thisCardID;
         System.out.print("Connecting to card...");
         CardChannel channel = Connect(runCfg);
-        CardMPCPlayer cardPlayer = new CardMPCPlayer(channel, cardID, format, m_lastTransmitTime, _FAIL_ON_ASSERT);
+        CardMPCPlayer cardPlayer = new CardMPCPlayer(channel, format, m_lastTransmitTime, _FAIL_ON_ASSERT);
+        cardID++;
         System.out.println(" Done.");
         // If required, make the applet "backdoored" to demonstrate functionality of 
         // incorrect behavior of a malicious attacker
@@ -139,7 +140,7 @@ public class MPCTestClient {
         // Retrieve card information
         cardPlayer.GetCardInfo();    
         mpcGlobals.players.add(cardPlayer);
-        cardID++;
+        
         
         // Simulate all remaining participants in protocol in addition to MPC card(s) 
         for (; cardID < runCfg.numPlayers; cardID++) {
@@ -295,7 +296,7 @@ public class MPCTestClient {
         for (MPCPlayer playerTarget : mpcGlobals.players) {
             for (MPCPlayer playerSource : mpcGlobals.players) {
                 if (playerTarget != playerSource) {
-                    System.out.format(format, operationName, playerTarget.StorePubKeyHash(QUORUM_INDEX, playerSource.GetPlayerID(), playerSource.GetPubKeyHash()));
+                    System.out.format(format, operationName, playerTarget.StorePubKeyHash(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKeyHash(QUORUM_INDEX)));
                     writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
                     combinedTime += m_lastTransmitTime;
                 }
@@ -315,7 +316,7 @@ public class MPCTestClient {
         for (MPCPlayer playerTarget : mpcGlobals.players) {
             for (MPCPlayer playerSource : mpcGlobals.players) {
                 if (playerTarget != playerSource) {
-                    System.out.format(format, operationName, playerTarget.StorePubKey(QUORUM_INDEX, playerSource.GetPlayerID(), playerSource.GetPubKey().getEncoded(false)));
+                    System.out.format(format, operationName, playerTarget.StorePubKey(QUORUM_INDEX, playerSource.GetPlayerIndex(QUORUM_INDEX), playerSource.GetPubKey(QUORUM_INDEX).getEncoded(false)));
                     writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
                     combinedTime += m_lastTransmitTime;
                 }
@@ -353,13 +354,50 @@ public class MPCTestClient {
         
         Long combinedTimeDecrypt = combinedTime - m_lastTransmitTime; // Remove encryption time from combined decryption time
         writePerfLog("* Combined Encrypt time", combinedTime, perfResults, perfFile);
-
+/*
         if (ciphertext.length > 0) {
             System.out.printf(String.format("%s:", operationName));
             ECPoint c1 = Util.ECPointDeSerialization(ciphertext, 0);
             ECPoint c2 = Util.ECPointDeSerialization(ciphertext, Consts.SHARE_DOUBLE_SIZE_CARRY);
 
             // Decrypt EC Point
+            // Combine all decryption shares (x_ic) (except for card which is added below) 
+            ECPoint xc1_EC = mpcGlobals.curve.getInfinity();
+            
+            MPCPlayer cardPlayer = mpcGlobals.players.get(0); // (only first  player == card)
+            byte[] xc1_share = cardPlayer.Decrypt(QUORUM_INDEX, ciphertext);
+            xc1_EC = xc1_EC.add(Util.ECPointDeSerialization(xc1_share, 0).negate()); // combine final share from card 
+            
+            for (MPCPlayer player : mpcGlobals.players) {
+                if (player instanceof SimulatedMPCPlayer) {
+                    SimulatedMPCPlayer simPlayer = (SimulatedMPCPlayer) player;
+                    xc1_EC = xc1_EC.add(c1.multiply(simPlayer.priv_key_BI).negate());
+                }
+            }
+           
+            ECPoint plaintext_EC = c2.add(xc1_EC);
+
+            System.out.format(format, "Decryption successful?:",
+                    Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
+            if (_FAIL_ON_ASSERT) {
+                assert (Arrays.equals(plaintext, plaintext_EC.getEncoded(false)));
+            }
+        } else {
+            System.out.println("ERROR: Failed to retrieve valid encrypted block from card");
+            if (_FAIL_ON_ASSERT) {
+                assert (false);
+            }
+        }
+/**/
+        
+        //
+        // Decrypt EC Point
+        //
+        if (ciphertext.length > 0) {
+            System.out.printf(String.format("%s:", operationName));
+            //ECPoint c1 = Util.ECPointDeSerialization(ciphertext, 0);
+            ECPoint c2 = Util.ECPointDeSerialization(ciphertext, Consts.SHARE_DOUBLE_SIZE_CARRY);
+
             // Combine all decryption shares (x_ic) (except for card which is added below) 
             ECPoint xc1_EC = mpcGlobals.curve.getInfinity();
             for (MPCPlayer player : mpcGlobals.players) {
@@ -378,20 +416,7 @@ public class MPCTestClient {
                 perfResultsList.add(new Pair("* Combined Decrypt time", combinedTimeDecrypt));
                 writePerfLog("* Combined Decrypt time", combinedTimeDecrypt, perfResults, perfFile);
             }
-/*
-            System.out.printf("\n");
-            operationName = "Decrypt (INS_DECRYPT)";
-            byte[] xc1_share = player.Decrypt(channel, QUORUM_INDEX, ciphertext, runCfg, _PROFILE_PERFORMANCE);
-            writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
-            combinedTime += m_lastTransmitTime;
-            combinedTimeDecrypt += m_lastTransmitTime;
-
-            perfResultsList.add(new Pair("* Combined Decrypt time", combinedTimeDecrypt));        
-            writePerfLog("* Combined Decrypt time", combinedTimeDecrypt, perfResults, perfFile);
-
-            System.out.printf(String.format("%s:", operationName));
-            xc1_EC = xc1_EC.add(Util.ECPointDeSerialization(xc1_share, 0).negate()); // combine final share from card 
-*/            
+       
             ECPoint plaintext_EC = c2.add(xc1_EC);
 
             System.out.format(format, "Decryption successful?:",
@@ -406,7 +431,7 @@ public class MPCTestClient {
                 assert (false);
             }            
         }
-        
+/**/        
     }
 
     /**
@@ -436,11 +461,11 @@ public class MPCTestClient {
             */
             for (MPCPlayer player : playersList) {
                 if (bFirstPlayer) {
-                    mpcGlobals.Rands[round - 1] = Util.ECPointDeSerialization(player.Gen_Rin(round), 0);
+                    mpcGlobals.Rands[round - 1] = Util.ECPointDeSerialization(player.Gen_Rin(QUORUM_INDEX, round), 0);
                     bFirstPlayer = false;
                 }
                 else {
-                    mpcGlobals.Rands[round - 1] = mpcGlobals.Rands[round - 1].add(Util.ECPointDeSerialization(player.Gen_Rin(round), 0));
+                    mpcGlobals.Rands[round - 1] = mpcGlobals.Rands[round - 1].add(Util.ECPointDeSerialization(player.Gen_Rin(QUORUM_INDEX, round), 0));
                 }
             }
             counter.add(one);
@@ -496,8 +521,9 @@ public class MPCTestClient {
             boolean bFirstPlayer = true; 
             for (MPCPlayer player : playersList) {
                 if (bFirstPlayer) {
+                    mpcGlobals.AggPubKey = player.GetAggregatedPubKey(QUORUM_INDEX); // Retrieve aggregated key from the first user 
                     sum_s_BI = player.Sign(QUORUM_INDEX, counter, mpcGlobals.Rands[counter - 1].getEncoded(false), plaintext_sig);
-                    card_e_BI = player.GetE();
+                    card_e_BI = player.GetE(QUORUM_INDEX);
                     bFirstPlayer = false;
                 }
                 else {

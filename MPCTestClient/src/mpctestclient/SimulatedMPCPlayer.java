@@ -48,26 +48,30 @@ class SimulatedMPCPlayer implements MPCPlayer {
     // MPCPlayer methods
     //
     @Override
-    public byte[] Gen_Rin(short i) throws NoSuchAlgorithmException, Exception {
+    public byte[] Gen_Rin(short quorumIndex, short i) throws NoSuchAlgorithmException, Exception {
         Bignat counter = Util.makeBignatFromValue(i);
         ECPoint Rin = curve_G.multiply(new BigInteger(PRF(counter, this.secret_seed)));
         return Rin.getEncoded(false);
     }
     
     @Override
-    public ECPoint GetPubKey() {
+    public ECPoint GetPubKey(short quorumIndex) {
         return pub_key_EC;
     }
     @Override
-    public short GetPlayerID() {
+    public short GetPlayerIndex(short quorumIndex) {
         return playerID;
     }
     @Override
-    public byte[] GetPubKeyHash() {
+    public byte[] GetPubKeyHash(short quorumIndex) {
         return pub_key_Hash;
     }
     @Override
-    public BigInteger GetE() {
+    public ECPoint GetAggregatedPubKey(short quorumIndex) {
+        return null;
+    }    
+    @Override
+    public BigInteger GetE(short quorumIndex) {
         return null; 
     }
 
@@ -102,7 +106,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
     }
     @Override
     public byte[] RetrievePubKey(short quorumIndex) throws Exception {
-        return pub_key_Hash;
+        return pub_key_EC.getEncoded(false);
     }
     @Override
     public boolean StorePubKey(short quorumIndex, short playerIndex, byte[] pub_arr) throws Exception {
@@ -119,7 +123,7 @@ class SimulatedMPCPlayer implements MPCPlayer {
     @Override
     public byte[] Decrypt(short quorumIndex, byte[] ciphertext) throws Exception {
         ECPoint c1 = Util.ECPointDeSerialization(ciphertext, 0);
-        ECPoint xc1_share = c1.multiply(priv_key_BI).negate();
+        ECPoint xc1_share = c1.multiply(priv_key_BI);
         return xc1_share.getEncoded(false);
     }
     

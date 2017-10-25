@@ -9,11 +9,12 @@ import org.bouncycastle.math.ec.ECPoint;
  * @author Petr Svenda
  */
 public interface MPCPlayer {
-    public BigInteger GetE();
-    public byte[] Gen_Rin(short i) throws NoSuchAlgorithmException, Exception;
-    public ECPoint GetPubKey();
-    public short GetPlayerID();
-    public byte[] GetPubKeyHash();
+    public BigInteger GetE(short quorumIndex);
+    public byte[] Gen_Rin(short quorumIndex, short i) throws NoSuchAlgorithmException, Exception;
+    public ECPoint GetPubKey(short quorumIndex);
+    public ECPoint GetAggregatedPubKey(short quorumIndex);
+    public short GetPlayerIndex(short quorumIndex);
+    public byte[] GetPubKeyHash(short quorumIndex);
     public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex) throws Exception;
     public boolean Reset(short quorumIndex) throws Exception;
     public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext) throws Exception;

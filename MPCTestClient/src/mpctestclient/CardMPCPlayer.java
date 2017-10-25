@@ -20,51 +20,63 @@ import org.bouncycastle.math.ec.ECPoint;
  * @author Petr Svenda
  */
 public class CardMPCPlayer implements MPCPlayer {
-    public short playerID;
+    static class QuorumContext {
+        short playerIndex;
+        short quorumIndex = 0;
+        short numPlayers = 0;
+        BigInteger card_e_BI;
+        public byte[] pub_key_Hash;
+        ECPoint pubKey;
+        ECPoint AggPubKey;
+        
+        QuorumContext(short quorumIndex, short playerIndex, short numPlayers) {
+            this.quorumIndex = quorumIndex;
+            this.playerIndex = playerIndex;
+            this.numPlayers = numPlayers;
+        }
+    }
     CardChannel channel = null;
-    short quorumIndex = 0;
     String logFormat = "%-40s:%s%n\n-------------------------------------------------------------------------------\n";
     Long lastTransmitTime;
     boolean bFailOnAssert = true;
-    HashMap<Short, Short> quorumCardIndexMap;
-    BigInteger card_e_BI;
-    public byte[] pub_key_Hash;
-    ECPoint pubKey;
-    ECPoint AggPubKey;
+    HashMap<Short, QuorumContext> quorumsCtxMap;
 
-    CardMPCPlayer(CardChannel channel, short quorumIndex, String logFormat, Long lastTransmitTime, boolean bFailOnAssert) {
+    CardMPCPlayer(CardChannel channel, String logFormat, Long lastTransmitTime, boolean bFailOnAssert) {
         this.channel = channel;
-        this.quorumIndex = quorumIndex;
         this.logFormat = logFormat;
         this.lastTransmitTime = lastTransmitTime;
         this.bFailOnAssert = bFailOnAssert;
-        this.quorumCardIndexMap = new HashMap<>();
+        this.quorumsCtxMap = new HashMap<>();
     }
     
     //
     // MPCPlayer methods
     //
     @Override
-    public short GetPlayerID() {
-        return playerID;
+    public short GetPlayerIndex(short quorumIndex) {
+        return quorumsCtxMap.get(quorumIndex).playerIndex;
     }
 
     @Override
-    public byte[] GetPubKeyHash() {
-        return pub_key_Hash;
+    public byte[] GetPubKeyHash(short quorumIndex) {
+        return quorumsCtxMap.get(quorumIndex).pub_key_Hash;
     }    
     @Override
-    public BigInteger GetE() {
-        return card_e_BI;
+    public BigInteger GetE(short quorumIndex) {
+        return quorumsCtxMap.get(quorumIndex).card_e_BI;
     }
     @Override
-    public ECPoint GetPubKey() {
-        return null;
+    public ECPoint GetPubKey(short quorumIndex) {
+        return quorumsCtxMap.get(quorumIndex).pubKey;
     }
-    
+    @Override
+    public ECPoint GetAggregatedPubKey(short quorumIndex) {
+        return quorumsCtxMap.get(quorumIndex).AggPubKey;
+    }
+
     
     @Override
-    public byte[] Gen_Rin(short i) throws NoSuchAlgorithmException, Exception {
+    public byte[] Gen_Rin(short quorumIndex, short i) throws NoSuchAlgorithmException, Exception {
         byte[] rin = RetrieveRI(channel, quorumIndex, i);
         System.out.format(logFormat, "Retrieve Ri,n (INS_SIGN_RETRIEVE_RI):", Util.bytesToHex(rin));
         return rin;
@@ -262,11 +274,10 @@ public class CardMPCPlayer implements MPCPlayer {
 
         return cmd;
     }
-    /* Instructions */
 
     @Override
     public boolean Setup(short quorumIndex, short numPlayers, short thisPlayerIndex) throws Exception {
-        quorumCardIndexMap.put(quorumIndex, thisPlayerIndex);
+        quorumsCtxMap.put(quorumIndex, new QuorumContext(quorumIndex, thisPlayerIndex, numPlayers));
 
         byte[] packetData = preparePacketData(Consts.INS_QUORUM_SETUP_NEW, quorumIndex, numPlayers, thisPlayerIndex);
 
@@ -345,7 +356,7 @@ public class CardMPCPlayer implements MPCPlayer {
                 Consts.INS_KEYGEN_RETRIEVE_PUBKEY, 0x00, 0x00, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
-        pubKey = Util.ECPointDeSerialization(response.getData(), 0);  // Store Pub
+        quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(response.getData(), 0);  // Store Pub
 
         return response.getData();
     }
@@ -358,7 +369,7 @@ public class CardMPCPlayer implements MPCPlayer {
                 Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, 0x00, 0x00, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
-        AggPubKey = Util.ECPointDeSerialization(response.getData(), 0); // Store aggregated pub
+        quorumsCtxMap.get(quorumIndex).AggPubKey = Util.ECPointDeSerialization(response.getData(), 0); // Store aggregated pub
 
         return checkSW(response);
     }
@@ -452,7 +463,7 @@ public class CardMPCPlayer implements MPCPlayer {
         //Parse e from Card
         Bignat card_e_Bn = new Bignat((short) 32, false);
         card_e_Bn.from_byte_array((short) 32, (short) 0, signature, (short) 32);
-        card_e_BI = new BigInteger(1, card_e_Bn.as_byte_array());
+        quorumsCtxMap.get(quorumIndex).card_e_BI = new BigInteger(1, card_e_Bn.as_byte_array());
 
         //System.out.println("REALCARD : s:        " + bytesToHex(card_s_Bn.as_byte_array()));
         //System.out.println("REALCARD : e:        " + bytesToHex(card_e_Bn.as_byte_array()) + "\n");
