@@ -14,6 +14,7 @@ import javax.smartcardio.ResponseAPDU;
 import javax.smartcardio.TerminalFactory;
 
 public class CardManagement {
+
     static Long m_lastTransmitTime = new Long(0);
 
     // Card Logistics
@@ -35,6 +36,46 @@ public class CardManagement {
                 return null;
         }
 
+    }
+
+    public static void ConnectAllPhysicalCards(byte[] appletAID, ArrayList<CardChannel> cardsList) throws Exception {
+        System.out.print("Looking for physical cards... ");
+        connectToAllCardsByTerminalFactory(TerminalFactory.getDefault(), appletAID, cardsList);
+    }
+
+    private static void connectToAllCardsByTerminalFactory(TerminalFactory factory, byte[] appAID, ArrayList<CardChannel> cardsList) throws CardException {
+        ArrayList<CardTerminal> terminals = new ArrayList<>();
+
+        Card card = null;
+        try {
+            for (CardTerminal t : factory.terminals().list()) {
+                terminals.add(t);
+                if (t.isCardPresent()) {
+                    System.out.print("Connecting...");
+                    card = t.connect("*"); // Connect with the card
+
+                    System.out.println(" Done.");
+
+                    System.out.print("Establishing channel...");
+                    CardChannel channel = card.getBasicChannel();
+
+                    System.out.println(" Done.");
+
+                    // Select applet (mpcapplet)
+                    System.out.println("Smartcard: Selecting applet...");
+                    CommandAPDU cmd = new CommandAPDU(appAID);
+                    ResponseAPDU response = transmit(channel, cmd);
+
+                    if (response.getSW() == (ISO7816.SW_NO_ERROR & 0xffff)) {
+                        cardsList.add(channel);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.out.println("Failed.");
+        }
+
+        System.out.println("MPC cards found: " + cardsList.size());
     }
 
     public static CardChannel ConnectPhysicalCard(int targetReaderIndex, byte[] appletAID) throws Exception {
@@ -98,9 +139,9 @@ public class CardManagement {
             System.out.println("Smartcard: Selecting applet...");
 
             CommandAPDU cmd = new CommandAPDU(appAID);
-            
+
             ResponseAPDU response = transmit(channel, cmd);
-            
+
         } else {
             System.out.print("Failed to find physical card.");
         }
@@ -111,47 +152,6 @@ public class CardManagement {
             return null;
         }
     }
-    
-    public static void ConnectAllPhysicalCards(byte[] appletAID, ArrayList<CardChannel> cardsList) throws Exception {
-        System.out.print("Looking for physical cards... ");
-        connectToAllCardsByTerminalFactory(TerminalFactory.getDefault(), appletAID, cardsList);
-    }
-    
-    private static void connectToAllCardsByTerminalFactory(TerminalFactory factory, byte[] appAID, ArrayList<CardChannel> cardsList) throws CardException {
-        ArrayList<CardTerminal> terminals = new ArrayList<>();
-
-        Card card = null;
-        try {
-            for (CardTerminal t : factory.terminals().list()) {
-                terminals.add(t);
-                if (t.isCardPresent()) {
-                    System.out.print("Connecting...");
-                    card = t.connect("*"); // Connect with the card
-
-                    System.out.println(" Done.");
-
-                    System.out.print("Establishing channel...");
-                    CardChannel channel = card.getBasicChannel();
-
-                    System.out.println(" Done.");
-
-                    // Select applet (mpcapplet)
-                    System.out.println("Smartcard: Selecting applet...");
-                    CommandAPDU cmd = new CommandAPDU(appAID);
-                    ResponseAPDU response = transmit(channel, cmd);
-                    
-                    if (response.getSW() == (ISO7816.SW_NO_ERROR & 0xffff)) {
-                        cardsList.add(channel);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.out.println("Failed.");
-        }
-
-        System.out.println("MPC cards found: " + cardsList.size());
-    }
-    
 
     public static ResponseAPDU transmit(CardChannel channel, CommandAPDU cmd)
             throws CardException {
@@ -188,7 +188,7 @@ public class CardManagement {
     private static void log(ResponseAPDU response) {
         log(response, 0);
     }
-    
+
     public static boolean checkSW(ResponseAPDU response) {
         if (response.getSW() != (ISO7816.SW_NO_ERROR & 0xffff)) {
             System.err.printf("Received error status: %02X.\n",
@@ -196,6 +196,6 @@ public class CardManagement {
             return false;
         }
         return true;
-    }    
+    }
 
 }

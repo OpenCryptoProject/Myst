@@ -11,6 +11,7 @@ import org.bouncycastle.math.ec.ECPoint;
  * @author Petr Svenda
  */
 public class MPCGlobals {
+
     public static ECCurve curve;
     public static BigInteger p;
     public static BigInteger a;
@@ -28,5 +29,5 @@ public class MPCGlobals {
 
     static ArrayList<MPCPlayer> players = new ArrayList<>();
 
-    public static ECPoint[] Rands;    
+    public static ECPoint[] Rands;
 }

@@ -8,14 +8,17 @@ import java.security.SecureRandom;
 import org.bouncycastle.math.ec.ECPoint;
 
 import ds.ov2.bignat.Bignat;
+import org.bouncycastle.math.ec.ECCurve;
 
 /**
  *
  * @author Vasilios Mavroudis and Petr Svenda
  */
 class SimulatedMPCPlayer implements MPCPlayer {
+
     public short playerID;
 
+    ECCurve curve;
     //Key Pair
     public BigInteger priv_key_BI;
     public ECPoint pub_key_EC;
@@ -33,10 +36,11 @@ class SimulatedMPCPlayer implements MPCPlayer {
     public ECPoint Ri_EC_pre;
     public byte[] Ri_Hash_pre;
 
-    public SimulatedMPCPlayer(short playerID, ECPoint G, BigInteger n) throws NoSuchAlgorithmException {
+    public SimulatedMPCPlayer(short playerID, ECPoint G, BigInteger n, ECCurve curve) throws NoSuchAlgorithmException {
         this.playerID = playerID;
-        curve_G = G;
-        curve_n = n;
+        this.curve_G = G;
+        this.curve_n = n;
+        this.curve = curve;
 
         this.KeyGen();
         SecureRandom random = new SecureRandom();
@@ -53,26 +57,30 @@ class SimulatedMPCPlayer implements MPCPlayer {
         ECPoint Rin = curve_G.multiply(new BigInteger(PRF(counter, this.secret_seed)));
         return Rin.getEncoded(false);
     }
-    
+
     @Override
     public ECPoint GetPubKey(short quorumIndex) {
         return pub_key_EC;
     }
+
     @Override
     public short GetPlayerIndex(short quorumIndex) {
         return playerID;
     }
+
     @Override
     public byte[] GetPubKeyHash(short quorumIndex) {
         return pub_key_Hash;
     }
+
     @Override
     public ECPoint GetAggregatedPubKey(short quorumIndex) {
         return null;
-    }    
+    }
+
     @Override
     public BigInteger GetE(short quorumIndex) {
-        return null; 
+        return null;
     }
 
     @Override
@@ -80,55 +88,67 @@ class SimulatedMPCPlayer implements MPCPlayer {
         // TODO: at the moment, simulated player performs nothing
         return true;
     }
+
     @Override
     public boolean Reset(short quorumIndex) throws Exception {
         // TODO: at the moment, simulated player performs nothing
         return true;
     }
+
     @Override
     public BigInteger Sign(short quorumIndex, int round, byte[] Rn, byte[] plaintext) throws Exception {
         Bignat roundBn = Util.makeBignatFromValue(round);
-        return Sign(roundBn, Util.ECPointDeSerialization(Rn, 0), plaintext);
+        return Sign(roundBn, Util.ECPointDeSerialization(curve, Rn, 0), plaintext);
     }
+
     @Override
     public boolean GenKeyPair(short quorumIndex) throws Exception {
         //this.KeyGen();
         return true;
     }
+
     @Override
     public boolean RetrievePubKeyHash(short quorumIndex) throws Exception {
         return true;
     }
+
     @Override
     public boolean StorePubKeyHash(short quorumIndex, short playerIndex, byte[] hash_arr) throws Exception {
         // TODO: store pub key hash optionally
         return true;
     }
+
     @Override
     public byte[] RetrievePubKey(short quorumIndex) throws Exception {
         return pub_key_EC.getEncoded(false);
     }
+
     @Override
     public boolean StorePubKey(short quorumIndex, short playerIndex, byte[] pub_arr) throws Exception {
         return true;
     }
+
     @Override
     public boolean RetrieveAggPubKey(short quorumIndex) throws Exception {
         return true;
     }
+
     @Override
     public byte[] Encrypt(short quorumIndex, byte[] plaintext) throws Exception {
         return null; // implement encryption for simulated players 
     }
+
     @Override
     public byte[] Decrypt(short quorumIndex, byte[] ciphertext) throws Exception {
-        ECPoint c1 = Util.ECPointDeSerialization(ciphertext, 0);
+        ECPoint c1 = Util.ECPointDeSerialization(curve, ciphertext, 0);
         ECPoint xc1_share = c1.multiply(priv_key_BI);
         return xc1_share.getEncoded(false);
     }
-    
-    
-    
+
+    @Override
+    public void disconnect() {
+    }
+
     //
     // SimulatedMPCPlayer helper methods
     //

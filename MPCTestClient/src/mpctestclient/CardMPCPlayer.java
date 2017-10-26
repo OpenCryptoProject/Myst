@@ -1,18 +1,17 @@
 package mpctestclient;
 
 import ds.ov2.bignat.Bignat;
-import ds.ov2.bignat.Convenience;
 import java.math.BigInteger;
-import java.nio.ByteBuffer;
-import java.nio.ByteOrder;
-import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 import mpc.Consts;
+import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 
 /**
@@ -20,7 +19,9 @@ import org.bouncycastle.math.ec.ECPoint;
  * @author Petr Svenda
  */
 public class CardMPCPlayer implements MPCPlayer {
+
     static class QuorumContext {
+
         short playerIndex;
         short quorumIndex = 0;
         short numPlayers = 0;
@@ -28,7 +29,7 @@ public class CardMPCPlayer implements MPCPlayer {
         public byte[] pub_key_Hash;
         ECPoint pubKey;
         ECPoint AggPubKey;
-        
+
         QuorumContext(short quorumIndex, short playerIndex, short numPlayers) {
             this.quorumIndex = quorumIndex;
             this.playerIndex = playerIndex;
@@ -40,15 +41,17 @@ public class CardMPCPlayer implements MPCPlayer {
     Long lastTransmitTime;
     boolean bFailOnAssert = true;
     HashMap<Short, QuorumContext> quorumsCtxMap;
+    ECCurve curve;
 
-    CardMPCPlayer(CardChannel channel, String logFormat, Long lastTransmitTime, boolean bFailOnAssert) {
+    CardMPCPlayer(CardChannel channel, String logFormat, Long lastTransmitTime, boolean bFailOnAssert, ECCurve curve) {
         this.channel = channel;
         this.logFormat = logFormat;
         this.lastTransmitTime = lastTransmitTime;
         this.bFailOnAssert = bFailOnAssert;
         this.quorumsCtxMap = new HashMap<>();
+        this.curve = curve;
     }
-    
+
     //
     // MPCPlayer methods
     //
@@ -60,26 +63,37 @@ public class CardMPCPlayer implements MPCPlayer {
     @Override
     public byte[] GetPubKeyHash(short quorumIndex) {
         return quorumsCtxMap.get(quorumIndex).pub_key_Hash;
-    }    
+    }
+
     @Override
     public BigInteger GetE(short quorumIndex) {
         return quorumsCtxMap.get(quorumIndex).card_e_BI;
     }
+
     @Override
     public ECPoint GetPubKey(short quorumIndex) {
         return quorumsCtxMap.get(quorumIndex).pubKey;
     }
+
     @Override
     public ECPoint GetAggregatedPubKey(short quorumIndex) {
         return quorumsCtxMap.get(quorumIndex).AggPubKey;
     }
 
-    
     @Override
     public byte[] Gen_Rin(short quorumIndex, short i) throws NoSuchAlgorithmException, Exception {
         byte[] rin = RetrieveRI(channel, quorumIndex, i);
         System.out.format(logFormat, "Retrieve Ri,n (INS_SIGN_RETRIEVE_RI):", Util.bytesToHex(rin));
         return rin;
+    }
+
+    @Override
+    public void disconnect() {
+        try {
+            channel.getCard().disconnect(true); // Disconnect from the card
+        } catch (CardException ex) {
+            Logger.getLogger(CardMPCPlayer.class.getName()).log(Level.SEVERE, null, ex);
+        }
     }
 
     //
@@ -97,7 +111,7 @@ public class CardMPCPlayer implements MPCPlayer {
         }
         ResponseAPDU response = transmit(channel, cmd);
     }
-    
+
     public boolean GetCardInfo() throws Exception {
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_PERSONALIZE_GETCARDINFO, 0, 0);
         ResponseAPDU response = transmit(channel, cmd);
@@ -176,31 +190,18 @@ public class CardMPCPlayer implements MPCPlayer {
 
         return checkSW(response);
     }
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
+
     private byte[] RetrieveRI(CardChannel channel, short quorumIndex, short i) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_SIGN_RETRIEVE_RI, quorumIndex, (short) i);
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN_RETRIEVE_RI,
                 0x00, 0x00, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
-		//We do nothing with the key, as we just use the Aggregated R in the test cases
+        ///We do nothing with the key, as we just use the Aggregated R in the test cases
         // return checkSW(response);
         return response.getData();
-    }    
-    
+    }
+
     private ResponseAPDU transmit(CardChannel channel, CommandAPDU cmd)
             throws CardException {
         log(cmd);
@@ -235,9 +236,7 @@ public class CardMPCPlayer implements MPCPlayer {
 
     private void log(ResponseAPDU response) {
         log(response, 0);
-    }    
-    
-
+    }
 
     byte[] preparePacketData(byte operationCode, short param1) {
         return preparePacketData(operationCode, 1, param1, null, null);
@@ -311,6 +310,8 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_KEYGEN_RETRIEVE_COMMITMENT,
                 0x00, 0x00, packetData);
         ResponseAPDU response = transmit(channel, cmd);
+        quorumsCtxMap.get(quorumIndex).pub_key_Hash = response.getData(); // Store pub key hash
+
         return checkSW(response);
     }
 
@@ -333,22 +334,7 @@ public class CardMPCPlayer implements MPCPlayer {
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
     }
-/*
-    private boolean RetrievePrivKey_DebugOnly(CardChannel channel)
-            throws Exception {
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
-                Consts.BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY, 0x0, 0x0);
-        ResponseAPDU response = transmit(channel, cmd);
 
-        // Store Secret
-        Bignat tmp_BN = new Bignat(Consts.SHARE_BASIC_SIZE, false);
-        tmp_BN.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, (response.getData()),
-                (short) 0);
-        mpcGlobals.secret = Convenience.bi_from_bn(tmp_BN);
-
-        return checkSW(response);
-    }
-*/    
     @Override
     public byte[] RetrievePubKey(short quorumIndex) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_KEYGEN_RETRIEVE_PUBKEY, quorumIndex);
@@ -356,7 +342,7 @@ public class CardMPCPlayer implements MPCPlayer {
                 Consts.INS_KEYGEN_RETRIEVE_PUBKEY, 0x00, 0x00, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
-        quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(response.getData(), 0);  // Store Pub
+        quorumsCtxMap.get(quorumIndex).pubKey = Util.ECPointDeSerialization(curve, response.getData(), 0);  // Store Pub
 
         return response.getData();
     }
@@ -369,11 +355,10 @@ public class CardMPCPlayer implements MPCPlayer {
                 Consts.INS_KEYGEN_RETRIEVE_AGG_PUBKEY, 0x00, 0x00, packetData);
         ResponseAPDU response = transmit(channel, cmd);
 
-        quorumsCtxMap.get(quorumIndex).AggPubKey = Util.ECPointDeSerialization(response.getData(), 0); // Store aggregated pub
+        quorumsCtxMap.get(quorumIndex).AggPubKey = Util.ECPointDeSerialization(curve, response.getData(), 0); // Store aggregated pub
 
         return checkSW(response);
     }
-
 
     @Override
     public byte[] Encrypt(short quorumIndex, byte[] plaintext)
@@ -383,33 +368,7 @@ public class CardMPCPlayer implements MPCPlayer {
         ResponseAPDU response = transmit(channel, cmd);
         return response.getData();
     }
-/*    
-    private byte[] Encrypt(CardChannel channel, short quorumIndex, byte[] plaintext, MPCRunConfig runCfg, boolean bProfilePerf)
-            throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_ENCRYPT, quorumIndex, (short) plaintext.length);
-        if (!bProfilePerf) {
-            CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0, Util.concat(packetData, plaintext));
-            ResponseAPDU response = transmit(channel, cmd);
-            return response.getData();
-        } else {
-            transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
 
-            short[] PERFSTOPS_Encrypt = {PM.TRAP_CRYPTOPS_ENCRYPT_1, PM.TRAP_CRYPTOPS_ENCRYPT_2, PM.TRAP_CRYPTOPS_ENCRYPT_3, PM.TRAP_CRYPTOPS_ENCRYPT_4, PM.TRAP_CRYPTOPS_ENCRYPT_5, PM.TRAP_CRYPTOPS_ENCRYPT_6, PM.TRAP_CRYPTOPS_ENCRYPT_COMPLETE};
-            runCfg.perfStops = PERFSTOPS_Encrypt;
-            runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_ENCRYPT_COMPLETE;
-            long avgOpTime = 0;
-            String opName = "Encrypt: ";
-            for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
-                CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0, Util.concat(packetData, plaintext));
-                avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
-            }
-            System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
-            transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
-
-            return Encrypt(channel, quorumIndex, plaintext, runCfg, false);
-        }
-    }    
-*/  
     @Override
     public byte[] Decrypt(short quorumIndex, byte[] ciphertext) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_DECRYPT, quorumIndex, (short) ciphertext.length);
@@ -418,36 +377,6 @@ public class CardMPCPlayer implements MPCPlayer {
 
         return response.getData();
     }
-    
-/*    
-
-    private byte[] Decrypt(CardChannel channel, short quorumIndex, byte[] ciphertext, MPCRunConfig runCfg, boolean bProfilePerf)
-            throws Exception {
-        byte[] packetData = preparePacketData(Consts.INS_DECRYPT, quorumIndex, (short) ciphertext.length);
-        if (!bProfilePerf) {
-            CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, 0x0, Util.concat(packetData, ciphertext));
-            ResponseAPDU response = transmit(channel, cmd);
-
-            return response.getData();
-        } else {
-            transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
-
-            short[] PERFSTOPS_Decrypt = {PM.TRAP_CRYPTOPS_DECRYPTSHARE_1, PM.TRAP_CRYPTOPS_DECRYPTSHARE_2, PM.TRAP_CRYPTOPS_DECRYPTSHARE_COMPLETE};
-            runCfg.perfStops = PERFSTOPS_Decrypt;
-            runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_DECRYPTSHARE_COMPLETE;
-            long avgOpTime = 0;
-            String opName = "Decrypt: ";
-            for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
-                CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, 0x0, Util.concat(packetData, ciphertext));
-                avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
-            }
-            System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
-            transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
-
-            return Decrypt(channel, quorumIndex, ciphertext, runCfg, false);
-        }
-    }
-*/    
 
     @Override
     public BigInteger Sign(short quorumIndex, int round, byte[] plaintext, byte[] Rn) throws Exception {
@@ -467,9 +396,9 @@ public class CardMPCPlayer implements MPCPlayer {
 
         //System.out.println("REALCARD : s:        " + bytesToHex(card_s_Bn.as_byte_array()));
         //System.out.println("REALCARD : e:        " + bytesToHex(card_e_Bn.as_byte_array()) + "\n");
-        
         return card_s_bi;
     }
+
     public byte[] Sign_plain(short quorumIndex, int round, byte[] plaintext, byte[] Rn) throws Exception {
         byte[] packetData = preparePacketData(Consts.INS_SIGN, quorumIndex, (short) round, (short) ((short) plaintext.length + (short) Rn.length));
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, Util.concat(packetData, Util.concat(plaintext, Rn)));
@@ -478,55 +407,6 @@ public class CardMPCPlayer implements MPCPlayer {
         return response.getData();
     }
 
-    /*
-     public byte[] Sign_profilePerf(short quorumIndex, int round, byte[] plaintext, byte[] Rn, MPCRunConfig runCfg, boolean bProfilePerf) throws Exception {
-         // Repeated measurements if required
-         long elapsed = -System.currentTimeMillis();
-         int repeats = 100000;
-         for (int i = 1; i < repeats; i++) {
-         plaintext[5] = (byte) (i % 256);
-         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(plaintext, Rn));
-         ResponseAPDU response = transmit(channel, cmd);
-         }
-         elapsed += System.currentTimeMillis();
-         System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed, elapsed / (float) repeats);
-
-        byte[] packetData = preparePacketData(Consts.INS_SIGN, quorumIndex, (short) round, (short) ((short) plaintext.length + (short) Rn.length));
-        if (!bProfilePerf) {
-            CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, Util.concat(packetData, Util.concat(plaintext, Rn)));
-            ResponseAPDU response = transmit(channel, cmd);
-
-            return response.getData();
-        } else {
-            // Repeated measurements if required
-            transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
-
-            short[] PERFSTOPS_Decrypt = {PM.TRAP_CRYPTOPS_SIGN_1, PM.TRAP_CRYPTOPS_SIGN_2, PM.TRAP_CRYPTOPS_SIGN_3, PM.TRAP_CRYPTOPS_SIGN_4, PM.TRAP_CRYPTOPS_SIGN_5, PM.TRAP_CRYPTOPS_SIGN_6, PM.TRAP_CRYPTOPS_SIGN_7, PM.TRAP_CRYPTOPS_SIGN_8, PM.TRAP_CRYPTOPS_SIGN_9, PM.TRAP_CRYPTOPS_SIGN_10, PM.TRAP_CRYPTOPS_SIGN_COMPLETE};
-            runCfg.perfStops = PERFSTOPS_Decrypt;
-            runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_SIGN_COMPLETE;
-            long avgOpTime = 0;
-            String opName = "Sign: ";
-            for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
-                CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, Util.concat(packetData, Util.concat(plaintext, Rn)));
-                avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
-            }
-            System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
-            transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
-
-            return Sign(channel, quorumIndex, round, plaintext, Rn, runCfg, false);
-        }
-    }
-         /**/
-/*
-    private boolean PointAdd(CardChannel channel) throws Exception {
-        byte[] PointA = mpcGlobals.G.multiply(BigInteger.valueOf(10)).getEncoded(false);
-        byte[] PointB = mpcGlobals.G.multiply(BigInteger.valueOf(20)).getEncoded(false);
-
-        CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ADDPOINTS, 0x00, 0x00, Util.concat(PointA, PointB));
-        ResponseAPDU response = transmit(channel, cmd);
-        return checkSW(response);
-    }
-*/
     private boolean checkSW(ResponseAPDU response) {
         if (response.getSW() != (Consts.SW_SUCCESS & 0xffff)) {
             System.err.printf("Received error status: %02X.\n",
@@ -537,9 +417,8 @@ public class CardMPCPlayer implements MPCPlayer {
             return false;
         }
         return true;
-    }    
-    
-    
+    }
+
     private boolean TestNativeECAdd(CardChannel channel, ECPoint point1, ECPoint point2) throws Exception {
         // addPoint
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_TESTECC, (byte) 1, point1.getEncoded(false).length, Util.concat(point1.getEncoded(false), point2.getEncoded(false)));
@@ -552,5 +431,127 @@ public class CardMPCPlayer implements MPCPlayer {
         CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_TESTECC, (byte) 2, point1.getEncoded(false).length, Util.concat(point1.getEncoded(false), scalar.toByteArray()));
         ResponseAPDU response = transmit(channel, cmd);
         return checkSW(response);
-    }    
+    }
+
+    /* Debug only, not supported on real card
+     private boolean RetrievePrivKey_DebugOnly(CardChannel channel)
+     throws Exception {
+     CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC,
+     Consts.BUGBUG_INS_KEYGEN_RETRIEVE_PRIVKEY, 0x0, 0x0);
+     ResponseAPDU response = transmit(channel, cmd);
+
+     // Store Secret
+     Bignat tmp_BN = new Bignat(Consts.SHARE_BASIC_SIZE, false);
+     tmp_BN.from_byte_array(Consts.SHARE_BASIC_SIZE, (short) 0, (response.getData()),
+     (short) 0);
+     mpcGlobals.secret = Convenience.bi_from_bn(tmp_BN);
+
+     return checkSW(response);
+     }
+     */
+    /*    
+     private byte[] Encrypt(CardChannel channel, short quorumIndex, byte[] plaintext, MPCRunConfig runCfg, boolean bProfilePerf)
+     throws Exception {
+     byte[] packetData = preparePacketData(Consts.INS_ENCRYPT, quorumIndex, (short) plaintext.length);
+     if (!bProfilePerf) {
+     CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0, Util.concat(packetData, plaintext));
+     ResponseAPDU response = transmit(channel, cmd);
+     return response.getData();
+     } else {
+     transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
+
+     short[] PERFSTOPS_Encrypt = {PM.TRAP_CRYPTOPS_ENCRYPT_1, PM.TRAP_CRYPTOPS_ENCRYPT_2, PM.TRAP_CRYPTOPS_ENCRYPT_3, PM.TRAP_CRYPTOPS_ENCRYPT_4, PM.TRAP_CRYPTOPS_ENCRYPT_5, PM.TRAP_CRYPTOPS_ENCRYPT_6, PM.TRAP_CRYPTOPS_ENCRYPT_COMPLETE};
+     runCfg.perfStops = PERFSTOPS_Encrypt;
+     runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_ENCRYPT_COMPLETE;
+     long avgOpTime = 0;
+     String opName = "Encrypt: ";
+     for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
+     CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ENCRYPT, 0x0, 0x0, Util.concat(packetData, plaintext));
+     avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
+     }
+     System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
+     transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
+
+     return Encrypt(channel, quorumIndex, plaintext, runCfg, false);
+     }
+     }    
+     */
+    /*    
+
+     private byte[] Decrypt(CardChannel channel, short quorumIndex, byte[] ciphertext, MPCRunConfig runCfg, boolean bProfilePerf)
+     throws Exception {
+     byte[] packetData = preparePacketData(Consts.INS_DECRYPT, quorumIndex, (short) ciphertext.length);
+     if (!bProfilePerf) {
+     CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, 0x0, Util.concat(packetData, ciphertext));
+     ResponseAPDU response = transmit(channel, cmd);
+
+     return response.getData();
+     } else {
+     transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
+
+     short[] PERFSTOPS_Decrypt = {PM.TRAP_CRYPTOPS_DECRYPTSHARE_1, PM.TRAP_CRYPTOPS_DECRYPTSHARE_2, PM.TRAP_CRYPTOPS_DECRYPTSHARE_COMPLETE};
+     runCfg.perfStops = PERFSTOPS_Decrypt;
+     runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_DECRYPTSHARE_COMPLETE;
+     long avgOpTime = 0;
+     String opName = "Decrypt: ";
+     for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
+     CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_DECRYPT, 0x0, 0x0, Util.concat(packetData, ciphertext));
+     avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
+     }
+     System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
+     transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
+
+     return Decrypt(channel, quorumIndex, ciphertext, runCfg, false);
+     }
+     }
+     */
+    /*
+     public byte[] Sign_profilePerf(short quorumIndex, int round, byte[] plaintext, byte[] Rn, MPCRunConfig runCfg, boolean bProfilePerf) throws Exception {
+     // Repeated measurements if required
+     long elapsed = -System.currentTimeMillis();
+     int repeats = 100000;
+     for (int i = 1; i < repeats; i++) {
+     plaintext[5] = (byte) (i % 256);
+     CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, concat(plaintext, Rn));
+     ResponseAPDU response = transmit(channel, cmd);
+     }
+     elapsed += System.currentTimeMillis();
+     System.out.format("Elapsed: %d ms, time per Sign = %f ms\n", elapsed, elapsed / (float) repeats);
+
+     byte[] packetData = preparePacketData(Consts.INS_SIGN, quorumIndex, (short) round, (short) ((short) plaintext.length + (short) Rn.length));
+     if (!bProfilePerf) {
+     CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, Util.concat(packetData, Util.concat(plaintext, Rn)));
+     ResponseAPDU response = transmit(channel, cmd);
+
+     return response.getData();
+     } else {
+     // Repeated measurements if required
+     transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
+
+     short[] PERFSTOPS_Decrypt = {PM.TRAP_CRYPTOPS_SIGN_1, PM.TRAP_CRYPTOPS_SIGN_2, PM.TRAP_CRYPTOPS_SIGN_3, PM.TRAP_CRYPTOPS_SIGN_4, PM.TRAP_CRYPTOPS_SIGN_5, PM.TRAP_CRYPTOPS_SIGN_6, PM.TRAP_CRYPTOPS_SIGN_7, PM.TRAP_CRYPTOPS_SIGN_8, PM.TRAP_CRYPTOPS_SIGN_9, PM.TRAP_CRYPTOPS_SIGN_10, PM.TRAP_CRYPTOPS_SIGN_COMPLETE};
+     runCfg.perfStops = PERFSTOPS_Decrypt;
+     runCfg.perfStopComplete = PM.TRAP_CRYPTOPS_SIGN_COMPLETE;
+     long avgOpTime = 0;
+     String opName = "Sign: ";
+     for (int repeat = 0; repeat < runCfg.numSingleOpRepeats; repeat++) {
+     CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_SIGN, round, 0x0, Util.concat(packetData, Util.concat(plaintext, Rn)));
+     avgOpTime += PerfAnalyzeCommand(opName, cmd, channel, runCfg);
+     }
+     System.out.println(String.format("%s: average time: %d", opName, avgOpTime / runCfg.numSingleOpRepeats));
+     transmit(channel, new CommandAPDU(PERF_COMMAND_NONE)); // erase any previous performance stop 
+
+     return Sign(channel, quorumIndex, round, plaintext, Rn, runCfg, false);
+     }
+     }
+     /**/
+    /*
+     private boolean PointAdd(CardChannel channel) throws Exception {
+     byte[] PointA = mpcGlobals.G.multiply(BigInteger.valueOf(10)).getEncoded(false);
+     byte[] PointB = mpcGlobals.G.multiply(BigInteger.valueOf(20)).getEncoded(false);
+
+     CommandAPDU cmd = new CommandAPDU(Consts.CLA_MPC, Consts.INS_ADDPOINTS, 0x00, 0x00, Util.concat(PointA, PointB));
+     ResponseAPDU response = transmit(channel, cmd);
+     return checkSW(response);
+     }
+     */
 }

@@ -3,7 +3,6 @@ package mpctestclient;
 import com.licel.jcardsim.io.JavaxSmartCardInterface;
 import java.nio.ByteBuffer;
 import javacard.framework.AID;
-import javax.smartcardio.ATR;
 import javax.smartcardio.Card;
 import javax.smartcardio.CardChannel;
 import javax.smartcardio.CardException;
@@ -15,11 +14,12 @@ import javax.smartcardio.ResponseAPDU;
  * @author Petr Svenda
  */
 public class SimulatedCardChannelLocal extends CardChannel {
+
     JavaxSmartCardInterface m_simulator;
     SimulatedCard m_card;
     AID m_appletAID;
-    
-    SimulatedCardChannelLocal (JavaxSmartCardInterface simulator, AID appletAIDRes) {
+
+    SimulatedCardChannelLocal(JavaxSmartCardInterface simulator, AID appletAIDRes) {
         m_simulator = simulator;
         m_card = new SimulatedCard();
         m_appletAID = appletAIDRes;

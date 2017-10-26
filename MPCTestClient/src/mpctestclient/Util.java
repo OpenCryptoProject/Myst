@@ -10,12 +10,11 @@ import java.security.Security;
 import javacard.framework.ISO7816;
 import javax.smartcardio.ResponseAPDU;
 import mpc.Consts;
-import static mpctestclient.MPCTestClient.bytesToHex;
-import static mpctestclient.MPCTestClient.mpcGlobals;
 import org.bouncycastle.jce.ECNamedCurveTable;
 import org.bouncycastle.jce.interfaces.ECPublicKey;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.jce.spec.ECParameterSpec;
+import org.bouncycastle.math.ec.ECCurve;
 import org.bouncycastle.math.ec.ECPoint;
 
 /**
@@ -49,8 +48,7 @@ public class Util {
         }
         return new String(hexChars);
     }
-    
-    
+
     /* Utils */
     public static short getShort(byte[] buffer, int offset) {
         return ByteBuffer.wrap(buffer, offset, 2).order(ByteOrder.BIG_ENDIAN).getShort();
@@ -63,15 +61,13 @@ public class Util {
     public static byte[] shortToByteArray(int s) {
         return new byte[]{(byte) ((s & 0xFF00) >> 8), (byte) (s & 0x00FF)};
     }
-    
+
     public static int shortToByteArray(short s, byte[] array, int arrayOffset) {
         array[arrayOffset] = (byte) ((s & 0xFF00) >> 8);
         array[arrayOffset + 1] = (byte) (s & 0x00FF);
         return arrayOffset + 2;
     }
-    
-    
-    
+
     public static byte[] joinArray(byte[]... arrays) {
         int length = 0;
         for (byte[] array : arrays) {
@@ -119,15 +115,14 @@ public class Util {
         return concat(tmp_conc, c);
 
     }
-    
-    public static ECPoint ECPointDeSerialization(byte[] serialized_point,
-            int offset) {
+
+    public static ECPoint ECPointDeSerialization(ECCurve curve, byte[] serialized_point, int offset) {
 
         byte[] x_b = new byte[256 / 8];
         byte[] y_b = new byte[256 / 8];
 
 		// System.out.println("Serialized Point: " + toHex(serialized_point));
-		// src -- This is the source array.
+        // src -- This is the source array.
         // srcPos -- This is the starting position in the source array.
         // dest -- This is the destination array.
         // destPos -- This is the starting position in the destination data.
@@ -139,7 +134,7 @@ public class Util {
         BigInteger y = new BigInteger(bytesToHex(y_b), 16);
         // System.out.println("Y:" + toHex(y_b));
 
-        ECPoint point = mpcGlobals.curve.createPoint(x, y);
+        ECPoint point = curve.createPoint(x, y);
 
         return point;
     }
@@ -153,8 +148,8 @@ public class Util {
         KeyPair apair = kpg.generateKeyPair();
         ECPublicKey apub = (ECPublicKey) apair.getPublic();
         return apub.getQ();
-    }    
-    
+    }
+
     public static byte[] IntToBytes(int val) {
         byte[] data = new byte[5];
         if (val < 0) {
@@ -183,8 +178,8 @@ public class Util {
         }
 
         return val;
-    }    
-    
+    }
+
     private static boolean checkSW(ResponseAPDU response) {
         if (response.getSW() != (ISO7816.SW_NO_ERROR & 0xffff)) {
             System.err.printf("Received error status: %02X.\n",
@@ -210,12 +205,14 @@ public class Util {
         setBignatValue(bn, i);
         return bn;
     }
+
     public static Bignat makeBignatFromValue(short i) {
         Bignat bn = new Bignat((short) 2);
         setBignatValue(bn, i);
         return bn;
     }
-    private static void setBignatValue(Bignat bn, int  i) {
+
+    private static void setBignatValue(Bignat bn, int i) {
         //Super bad & ugly way of converting short to Bignat (I've added a proper function in the actual lib)
         Bignat one = new Bignat((short) 2);
         one.one();
