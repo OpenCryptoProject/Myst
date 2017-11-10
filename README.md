@@ -8,3 +8,6 @@ The research paper and other details are available at https://backdoortolerance.
 This project is technology demonstrator and requires one or more smartcards with JavaCard platform with remaining players contributing to the protocols simulated in software.
 
 
+
+[![IMAGE ALT TEXT](https://img.youtube.com/vi/sPd7Nwidfko/0.jpg)](http://www.youtube.com/watch?v=sPd7Nwidfko "")
+
