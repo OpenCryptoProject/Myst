@@ -40,15 +40,15 @@ public class MPCProtocolTests {
         runCfg.numSingleOpRepeats = 3;
         
         // Execute once
-        MPCTestClient.TestMPCProtocol_v20170520(runCfg);
+        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
         
         // Execute 2x
         runCfg.numWholeTestRepeats = 2;
-        MPCTestClient.TestMPCProtocol_v20170520(runCfg);
+        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
 
         // Execute 10x
         runCfg.numWholeTestRepeats = 10;
-        MPCTestClient.TestMPCProtocol_v20170520(runCfg);
+        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
     }
     
     @Test
@@ -57,7 +57,7 @@ public class MPCProtocolTests {
         runCfg.numPlayers = 2;
         runCfg.numSingleOpRepeats = 1;
         // Execute once
-        MPCTestClient.TestMPCProtocol_v20170520(runCfg);
+        MPCTestClient.TestMPCProtocol_v20170920(runCfg);
     }
 
     @Test
@@ -65,7 +65,7 @@ public class MPCProtocolTests {
         MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
         runCfg.numPlayers = Consts.MAX_NUM_PLAYERS;
         // Execute once
-        mpctestclient.MPCTestClient.TestMPCProtocol_v20170520(runCfg);
+        mpctestclient.MPCTestClient.TestMPCProtocol_v20170920(runCfg);
     }
     
     

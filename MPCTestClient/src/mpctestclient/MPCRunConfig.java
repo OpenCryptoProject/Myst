@@ -12,11 +12,11 @@ import mpc.MPCApplet;
  */
 public class MPCRunConfig {
 
-    int targetReaderIndex = 0;
-    short numPlayers = 4;
-    short thisCardID = 0;
-    int numWholeTestRepeats = 1;
-    int numSingleOpRepeats = 3;
+    public int targetReaderIndex = 0;
+    public short numPlayers = 4;
+    public short thisCardID = 0;
+    public int numWholeTestRepeats = 1;
+    public int numSingleOpRepeats = 3;
     public Class appletToSimulate;
     public short[] perfStops = null;
     public short perfStopComplete = -1;
@@ -33,7 +33,7 @@ public class MPCRunConfig {
     }
     CARD_TYPE testCardType = CARD_TYPE.PHYSICAL;
 
-    static MPCRunConfig getDefaultConfig() {
+    public static MPCRunConfig getDefaultConfig() {
         MPCRunConfig runCfg = new MPCRunConfig();
         runCfg.targetReaderIndex = 0;
         runCfg.numPlayers = 4;

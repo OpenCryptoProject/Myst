@@ -224,6 +224,93 @@ public class MPCTestClient {
             }
         }
     }
+    
+    public static void TestMPCProtocol_v20170920(MPCRunConfig runCfg) throws FileNotFoundException, Exception {
+        String experimentID = String.format("%d", System.currentTimeMillis());
+        runCfg.perfFile = new FileOutputStream(String.format("MPC_DETAILPERF_log_%s.csv", experimentID));
+
+        // Prepare globals
+        mpcGlobals.Rands = new ECPoint[runCfg.numPlayers];
+        mpcGlobals.players.clear();
+
+        // Prepare SecP256r1 curve
+        prepareECCurve(mpcGlobals);
+
+        // Obtain list of all connected MPC cards
+        System.out.print("Connecting to MPC cards...");
+        ArrayList<CardChannel> cardsList = new ArrayList<>();
+        CardManagement.ConnectAllPhysicalCards(runCfg.appletAID, cardsList);
+        // Create card contexts, fill cards IDs
+        short cardID = runCfg.thisCardID;
+        for (CardChannel channel : cardsList) {
+            CardMPCPlayer cardPlayer = new CardMPCPlayer(channel, format, m_lastTransmitTime, _FAIL_ON_ASSERT, mpcGlobals.curve);
+            // If required, make the applet "backdoored" to demonstrate functionality of incorrect behavior of a malicious attacker
+            if (_IS_BACKDOORED_EXAMPLE) {
+                cardPlayer.SetBackdoorExample(channel, true);
+            }
+            // Retrieve card information
+            cardPlayer.GetCardInfo();
+            mpcGlobals.players.add(cardPlayer);
+            cardID++;
+        }
+        System.out.println(" Done.");
+
+        // Simulate all remaining participants in protocol in addition to MPC card(s) 
+        for (; cardID < runCfg.numPlayers; cardID++) {
+            mpcGlobals.players.add(new SimulatedMPCPlayer(cardID, mpcGlobals.G, mpcGlobals.n, mpcGlobals.curve));
+        }
+
+        for (int repeat = 0; repeat < runCfg.numWholeTestRepeats; repeat++) {
+            perfResults.clear();
+            String logFileName = String.format("MPC_PERF_log_%d.csv", System.currentTimeMillis());
+            FileOutputStream perfFile = new FileOutputStream(logFileName);
+
+            //
+            // Setup card(s)
+            //
+            short playerIndex = 0;
+            for (MPCPlayer player : mpcGlobals.players) {
+                // Setup
+                String operationName = "Setting Up the MPC Parameters (INS_SETUP)";
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
+                // Reset
+                operationName = "Reseting the card to an uninitialized state (INS_RESET)";
+                System.out.format(format, operationName, player.Reset(QUORUM_INDEX));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
+                // Setup again
+                operationName = "Setting Up the MPC Parameters (INS_SETUP)";
+                System.out.format(format, operationName, player.Setup(QUORUM_INDEX, runCfg.numPlayers, playerIndex));
+                writePerfLog(operationName, m_lastTransmitTime, perfResults, perfFile);
+
+                playerIndex++;
+            }
+
+            // BUGBUG: Signature without previous EncryptDecrypt will fail on CryptoObjects.KeyPair.Getxi() - as no INS_KEYGEN_xxx was called
+            PerformKeyGen(mpcGlobals.players, perfFile);
+
+            //
+            // Encrypt / Decrypt
+            //
+            PerformEncryptDecrypt(BigInteger.TEN, mpcGlobals.players, perfResults, perfFile, runCfg);
+            //
+            // Sign
+            //
+            PerformSignCache(mpcGlobals.players, perfResults, perfFile);
+            PerformSignature(BigInteger.TEN, 1, mpcGlobals.players, perfResults, perfFile, runCfg);
+
+            System.out.print("Disconnecting from card...");
+            for (MPCPlayer player : mpcGlobals.players) {
+                player.disconnect();
+            }
+            System.out.println(" Done.");
+
+            // Close cvs perf file
+            perfFile.close();
+        }        
+    }
 
     static void prepareECCurve(MPCGlobals mpcParams) {
         mpcParams.p = new BigInteger(Util.bytesToHex(SecP256r1.p), 16);
