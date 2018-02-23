@@ -26,3 +26,6 @@ hs_err_pid*
 /MPCTestClient/MPC_PERF_log_*
 
 /experiments/
+/MystClient/nbproject/private/
+/MystHost/build/
+/MystHost/dist/
