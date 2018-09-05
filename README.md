@@ -15,4 +15,4 @@ This project is technology demonstrator and requires one or more smartcards with
   <br />
   <br />
   <br />
-_This work was supported by the European Commission through the H2020-DS-2014-653497 PANORAMIX project and the European Research Council via the European Union’s Seventh Framework Programme (FP/2007-2013) / ERC Grant Agreement n. 307937, and the Czech Science Foundation under project GA16-08565S._
+<i>This work was supported by the European Commission through the H2020-DS-2014-653497 PANORAMIX project and the European Research Council via the European Union’s Seventh Framework Programme (FP/2007-2013) / ERC Grant Agreement n. 307937, and the Czech Science Foundation under project GA16-08565S.<i/>
