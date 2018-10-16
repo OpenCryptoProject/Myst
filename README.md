@@ -11,6 +11,24 @@ This project is technology demonstrator and requires one or more smartcards with
 <p align="center">
   <a href="http://www.youtube.com/watch?v=sPd7Nwidfko"><img src="https://img.youtube.com/vi/sPd7Nwidfko/0.jpg"></a>
 </p>
+
+
+## Academic Paper
+
+If you want get into the math and the technical details, you can find our paper here: https://arxiv.org/pdf/1709.03817.pdf
+
+If you want to cite this work:
+```
+@inproceedings{mavroudis2017touch,
+  title={A touch of evil: High-assurance cryptographic hardware from untrusted components},
+  author={Mavroudis, Vasilios and Cerulli, Andrea and Svenda, Petr and Cvrcek, Dan and Klinec, Dusan and Danezis, George},
+  booktitle={Proceedings of the 2017 ACM SIGSAC Conference on Computer and Communications Security},
+  pages={1583--1600},
+  year={2017},
+  organization={ACM}
+}
+```
+
   <br />
   <br />
   <br />
