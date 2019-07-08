@@ -1,4 +1,5 @@
-# Myst - Secure Multiparty Key Generation, Signature and Decryption JavaCard applet and host application
+# Myst
+## Secure Multiparty Key Generation, Signature and Decryption JavaCard applet and host application
 Cryptographic Hardware from Untrusted Components
 
 This project implements novel distributed key generation, signature, and decryption with private key distributed among multiple separate entities. 
