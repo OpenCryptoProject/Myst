@@ -31,7 +31,8 @@ import java.util.HashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javafx.util.Pair;
+import java.util.Map.Entry;
+import java.util.AbstractMap.SimpleEntry;
 import mpc.Consts;
 import mpc.PM;
 import mpc.jcmathlib.*;
@@ -61,7 +62,7 @@ public class MPCTestClient {
     static byte[] MPC_APPLET_AID = {(byte) 0x00, (byte) 0xA4, (byte) 0x04, (byte) 0x00, (byte) 0x0a, (byte) 0x4d, (byte) 0x50, (byte) 0x43, (byte) 0x41, (byte) 0x70, (byte) 0x70, (byte) 0x6c, (byte) 0x65, (byte) 0x74, (byte) 0x31};
 
     // Performance testing variables
-    static ArrayList<Pair<String, Long>> perfResults = new ArrayList<>();
+    static ArrayList<Entry<String, Long>> perfResults = new ArrayList<>();
     static Long m_lastTransmitTime = new Long(0);
     public static HashMap<Short, String> PERF_STOP_MAPPING = new HashMap<>();
     public static byte[] PERF_COMMAND = {Consts.CLA_MPC, Consts.INS_PERF_SETSTOP, 0, 0, 2, 0, 0};
@@ -77,8 +78,8 @@ public class MPCTestClient {
             buildPerfMapping();
 
             MPCRunConfig runCfg = MPCRunConfig.getDefaultConfig();
-            //runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
-            runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
+            runCfg.testCardType = MPCRunConfig.CARD_TYPE.JCARDSIMLOCAL;
+            //runCfg.testCardType = MPCRunConfig.CARD_TYPE.PHYSICAL;
             runCfg.numSingleOpRepeats = 1;
             //runCfg.numWholeTestRepeats = 10; more than one repeat will fail on simulator due to change of address of allocated objects, runs ok on real card
             runCfg.numPlayers = 4;
@@ -90,8 +91,8 @@ public class MPCTestClient {
         }
     }
 
-    static void writePerfLog(String operationName, Long time, ArrayList<Pair<String, Long>> perfResults, FileOutputStream perfFile) throws IOException {
-        perfResults.add(new Pair(operationName, time));
+    static void writePerfLog(String operationName, Long time, ArrayList<Entry<String, Long>> perfResults, FileOutputStream perfFile) throws IOException {
+        perfResults.add(new SimpleEntry(operationName, time));
         perfFile.write(String.format("%s,%d\n", operationName, time).getBytes());
         perfFile.flush();
     }
@@ -323,7 +324,7 @@ public class MPCTestClient {
         Security.addProvider(new org.bouncycastle.jce.provider.BouncyCastleProvider());
     }
 
-    static void saveLatexPerfLog(ArrayList<Pair<String, Long>> results) {
+    static void saveLatexPerfLog(ArrayList<Entry<String, Long>> results) {
         try {
             // Save performance results also as latex
             String logFileName = String.format("MPC_PERF_log_%d.tex", System.currentTimeMillis());
@@ -334,7 +335,7 @@ public class MPCTestClient {
                     + "\\hline\n"
                     + "\\hline\n";
             perfFile.write(tableHeader.getBytes());
-            for (Pair<String, Long> measurement : results) {
+            for (Entry<String, Long> measurement : results) {
                 String operation = measurement.getKey();
                 operation = operation.replace("_", "\\_");
                 perfFile.write(String.format("%s & %d \\\\ \\hline\n", operation, measurement.getValue()).getBytes());
@@ -409,7 +410,7 @@ public class MPCTestClient {
 
     }
 
-    static void PerformEncryptDecrypt(BigInteger msgToEncDec, ArrayList<MPCPlayer> playersList, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
+    static void PerformEncryptDecrypt(BigInteger msgToEncDec, ArrayList<MPCPlayer> playersList, ArrayList<Entry<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
         String operationName = "";
         Long combinedTime = (long) 0;
 
@@ -447,7 +448,7 @@ public class MPCTestClient {
                 combinedTime += m_lastTransmitTime;
                 combinedTimeDecrypt += m_lastTransmitTime;
 
-                perfResultsList.add(new Pair("* Combined Decrypt time", combinedTimeDecrypt));
+                perfResultsList.add(new SimpleEntry("* Combined Decrypt time", combinedTimeDecrypt));
                 writePerfLog("* Combined Decrypt time", combinedTimeDecrypt, perfResults, perfFile);
             }
 
@@ -478,7 +479,7 @@ public class MPCTestClient {
      * @throws NoSuchAlgorithmException
      * @throws Exception
      */
-    static void PerformSignCache(ArrayList<MPCPlayer> playersList, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
+    static void PerformSignCache(ArrayList<MPCPlayer> playersList, ArrayList<Entry<String, Long>> perfResultsList, FileOutputStream perfFile) throws NoSuchAlgorithmException, Exception {
 
         Bignat counter = new Bignat((short) 2, false);
         Bignat one = new Bignat((short) 2, false);
@@ -518,7 +519,7 @@ public class MPCTestClient {
      * @throws NoSuchAlgorithmException
      * @throws Exception
      */
-    static void PerformSignature(BigInteger msgToSign, int counter, ArrayList<MPCPlayer> playersList, ArrayList<Pair<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
+    static void PerformSignature(BigInteger msgToSign, int counter, ArrayList<MPCPlayer> playersList, ArrayList<Entry<String, Long>> perfResultsList, FileOutputStream perfFile, MPCRunConfig runCfg) throws NoSuchAlgorithmException, Exception {
         // Sign EC Point
         byte[] plaintext_sig = mpcGlobals.G.multiply(msgToSign).getEncoded(false);
 
@@ -762,7 +763,7 @@ public class MPCTestClient {
      return lastFromPrevTime;
      }    
      */
-    static void SavePerformanceResults(HashMap<Short, Pair<Short, Long>> perfResultsSubpartsRaw, String fileName) throws FileNotFoundException, IOException {
+    static void SavePerformanceResults(HashMap<Short, Entry<Short, Long>> perfResultsSubpartsRaw, String fileName) throws FileNotFoundException, IOException {
         // Save performance traps into single file
         FileOutputStream perfLog = new FileOutputStream(fileName);
         String output = "perfID, previous perfID, time difference between perfID and previous perfID (ms)\n";
@@ -774,7 +775,7 @@ public class MPCTestClient {
         perfLog.close();
     }
 
-    static void InsertPerfInfoIntoFiles(String basePath, String cardName, String experimentID, HashMap<Short, Pair<Short, Long>> perfResultsSubpartsRaw) throws FileNotFoundException, IOException {
+    static void InsertPerfInfoIntoFiles(String basePath, String cardName, String experimentID, HashMap<Short, Entry<Short, Long>> perfResultsSubpartsRaw) throws FileNotFoundException, IOException {
         File dir = new File(basePath);
         String[] filesArray = dir.list();
         if ((filesArray != null) && (dir.isDirectory() == true)) {
@@ -791,7 +792,7 @@ public class MPCTestClient {
         }
     }
 
-    static void InsertPerfInfoIntoFile(String filePath, String cardName, String experimentID, String outputDir, HashMap<Short, Pair<Short, Long>> perfResultsSubpartsRaw) throws FileNotFoundException, IOException {
+    static void InsertPerfInfoIntoFile(String filePath, String cardName, String experimentID, String outputDir, HashMap<Short, Entry<Short, Long>> perfResultsSubpartsRaw) throws FileNotFoundException, IOException {
         try {
             BufferedReader br = new BufferedReader(new FileReader(filePath));
             String basePath = filePath.substring(0, filePath.lastIndexOf("\\"));

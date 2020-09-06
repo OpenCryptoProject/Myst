@@ -11,7 +11,7 @@
 .mtj.tmp/
 
 # Package Files #
-*.jar
+#*.jar
 *.war
 *.ear
 *.zip
@@ -21,9 +21,12 @@
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 
+/MPCTestClient/dist/
 /MPCTestClient/build/
 /MPCTestClient/nbproject/
 /MPCTestClient/MPC_PERF_log_*
+/MPCTestClient/MPC_DETAILPERF_log_*
+/MPCTestClient/TRAP_RAW*
 
 /experiments/
 /MystClient/nbproject/private/
